@@ -82,7 +82,7 @@ type PlanetPos struct {
 	Distance      float64 // distance from Earth in AU
 	SpeedLon      float64 // daily speed in longitude (degrees/day)
 	SpeedLat      float64 // daily speed in latitude (degrees/day)
-	SpeedDistance  float64 // daily speed in distance (AU/day)
+	SpeedDistance float64 // daily speed in distance (AU/day)
 }
 
 // CalcPlanet calculates the position of a planet at the given Julian Day (UT).
@@ -106,11 +106,11 @@ func CalcPlanet(tjdUT float64, planet int) (PlanetPos, error) {
 	}
 
 	return PlanetPos{
-		Longitude:    float64(xx[0]),
-		Latitude:     float64(xx[1]),
-		Distance:     float64(xx[2]),
-		SpeedLon:     float64(xx[3]),
-		SpeedLat:     float64(xx[4]),
+		Longitude:     float64(xx[0]),
+		Latitude:      float64(xx[1]),
+		Distance:      float64(xx[2]),
+		SpeedLon:      float64(xx[3]),
+		SpeedLat:      float64(xx[4]),
 		SpeedDistance: float64(xx[5]),
 	}, nil
 }
