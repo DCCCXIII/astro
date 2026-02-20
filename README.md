@@ -167,3 +167,7 @@ func main() {
 ## License
 
 See [LICENSE](LICENSE) for the Swiss Ephemeris licensing terms (AGPL or commercial).
+
+## Development
+
+This repository was developed with the assistance of [Claude Code](https://claude.ai/claude-code) (Anthropic's AI coding assistant).
