@@ -25,13 +25,41 @@ The Swiss Ephemeris C sources are bundled in the `swisseph/` directory and compi
 
 ## Running
 
-```bash
-./astro
 ```
+astro [--house-system <system>] [--json] <datetime> <lat> <lon>
+```
+
+**Arguments:**
+
+| Argument | Description |
+|---|---|
+| `<datetime>` | UTC date/time in ISO 8601 format, e.g. `2024-03-20T12:00:00Z` |
+| `<lat>` | Geographic latitude in decimal degrees (north = positive) |
+| `<lon>` | Geographic longitude in decimal degrees (east = positive, west = negative) |
+
+**Flags:**
+
+| Flag | Default | Description |
+|---|---|---|
+| `--house-system` | `placidus` | House system: `placidus`, `koch`, `whole-sign`, `regiomontanus`, `equal`, `campanus` |
+| `--json` | — | Output results as JSON instead of human-readable text |
 
 The binary looks for ephemeris data files (`.se1`) in an `ephe/` directory next to the executable. These files are included in the repository and provide high-precision planetary data.
 
-### Example output
+### Examples
+
+```bash
+# Human-readable output
+./astro 2024-03-20T12:00:00Z 40.7128 -74.0060
+
+# JSON output
+./astro --json 2024-03-20T12:00:00Z 40.7128 -74.0060
+
+# Different house system
+./astro --house-system koch 2024-03-20T12:00:00Z 40.7128 -74.0060
+```
+
+### Example output (human-readable)
 
 ```
 Julian Day: 2460390.000000
@@ -45,7 +73,7 @@ Mars         328.0619°  (Aquarius 28.06°)  speed: +0.7779°/day
 Jupiter       44.9602°  (Taurus 14.96°)  speed: +0.2013°/day
 Saturn       342.2693°  (Pisces 12.27°)  speed: +0.1182°/day
 
-=== Houses (Placidus) for New York City (40.7128°N, 74.0060°W) ===
+=== Houses (placidus) for (40.7128°, -74.0060°) ===
 Ascendant:    24.6432°  (Aries 24.64°)
 MC:          283.3523°  (Capricorn 13.35°)
 
@@ -53,6 +81,27 @@ House cusps:
   House  1:   24.6432°  (Aries 24.64°)
   House  2:   58.8302°  (Taurus 28.83°)
   ...
+```
+
+### Example output (JSON)
+
+```json
+{
+  "julian_day": 2460390,
+  "planets": [
+    {"name": "Sun", "longitude": 0.368, "sign": "Aries", "sign_degree": 0.368, "speed": 0.993},
+    ...
+  ],
+  "houses": {
+    "system": "placidus",
+    "ascendant": {"longitude": 24.643, "sign": "Aries", "sign_degree": 24.643},
+    "mc": {"longitude": 283.352, "sign": "Capricorn", "sign_degree": 13.352},
+    "cusps": [
+      {"house": 1, "longitude": 24.643, "sign": "Aries", "sign_degree": 24.643},
+      ...
+    ]
+  }
+}
 ```
 
 ## Package API
@@ -96,7 +145,7 @@ package main
 
 import (
     "fmt"
-    "github.com/rubenrm/astro/swisseph"
+    "github.com/dcccxiii/astro/swisseph"
 )
 
 func main() {
