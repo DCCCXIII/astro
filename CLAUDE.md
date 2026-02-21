@@ -25,10 +25,21 @@ astro/
 └── README.md
 ```
 
+## Commands
+
+ALWAYS use these make targets instead of raw Go commands:
+
+- **Build:** `make` (runs `go fmt`, `go vet`, `go test`, then `go build`)
+- **Test:** `make test` (runs `go fmt`, `go vet`, then `go test -v ./...`)
+- **Format only:** `make fmt`
+- **Vet only:** `make vet`
+
+Never run `go build`, `go test`, `go fmt`, or `go vet` directly.
+
 ## Build
 
 ```bash
-go build -o astro .
+make
 ```
 
 Requires Go 1.25+ and a C compiler (GCC or Clang). No external C library installation needed — Swiss Ephemeris C sources are bundled. cgo compiles them automatically via directives in `swisseph/swisseph.go`.
