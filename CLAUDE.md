@@ -8,9 +8,17 @@ Go wrapper around the Swiss Ephemeris C library for astrological calculations, p
 
 ```
 astro/
-├── main.go              # CLI entry point
+├── main.go              # Minimal entry point — delegates to cmd.Run
+├── cmd/
+│   ├── run.go           # CLI flag parsing, validation, orchestration
+│   └── run_test.go      # Tests for flag parsing and house system lookup
+├── output/
+│   ├── result.go        # Result type + Build() — all swisseph calls live here
+│   ├── text.go          # PrintText() — human-readable renderer
+│   └── json.go          # PrintJSON() — JSON renderer
 ├── swisseph/
 │   ├── swisseph.go      # Go cgo bindings to Swiss Ephemeris
+│   ├── swisseph_test.go # Tests for the swisseph package
 │   ├── *.c / *.h        # Bundled Swiss Ephemeris C source (no external install needed)
 ├── ephe/                # Binary ephemeris data files (~105 MB, .se1 format)
 ├── go.mod               # module github.com/dcccxiii/astro, go 1.25
@@ -37,7 +45,27 @@ astro [--house-system <system>] [--json] <datetime> <lat> <lon>
 - `--house-system`: `placidus` (default), `koch`, `whole-sign`, `regiomontanus`, `equal`, `campanus`
 - `--json`: Output JSON instead of human-readable text
 
-## Key Go API (`swisseph` package)
+## Package Overview
+
+### `cmd`
+
+`Run(args []string) error` is the real entry point. It parses flags with `flag.NewFlagSet`, validates arguments, resolves the ephemeris path relative to the executable, and delegates to the `output` package.
+
+### `output`
+
+Three files with a clean separation of concerns:
+
+- **`result.go`** — `Build()` calls `swisseph.CalcPlanet` and `swisseph.CalcHouses`, assembles a `Result` struct. Neither renderer touches the C library.
+- **`text.go`** — `PrintText(r Result) error` writes human-readable output to stdout.
+- **`json.go`** — `PrintJSON(r Result) error` marshals to indented JSON and writes to stdout.
+
+### `swisseph`
+
+Low-level cgo bindings. All C calls are mutex-protected for thread safety. Callers never interact with C types directly.
+
+## Key Go API
+
+### `swisseph` package
 
 | Function | Description |
 |---|---|
@@ -46,18 +74,33 @@ astro [--house-system <system>] [--json] <datetime> <lat> <lon>
 | `JulDay(year, month, day, hour)` | Calendar date → Julian Day |
 | `CalcPlanet(tjdUT, planet)` | Planet position at Julian Day |
 | `CalcHouses(tjdUT, lat, lon, hsys)` | House cusps for location/time |
-| `ZodiacSign(longitude)` | Ecliptic longitude → sign name + degree |
-
-All C calls are mutex-protected for thread safety.
+| `ZodiacSign(longitude)` | Ecliptic longitude → sign name + degree (normalises to [0, 360) automatically) |
 
 **Planet IDs:** `swisseph.Sun`, `Moon`, `Mercury`, `Venus`, `Mars`, `Jupiter`, `Saturn`
 
 **House system bytes:** `HousePlacidus='P'`, `HouseKoch='K'`, `HouseWholeSign='W'`, `HouseRegiomontanus='R'`, `HouseEqual='A'`, `HouseCampanus='C'`
 
+### `output` package
+
+| Function | Description |
+|---|---|
+| `Build(jd, planets, lat, lon, hsys, hsysName)` | Compute full chart; returns `Result` or error |
+| `PrintText(r Result) error` | Render human-readable output to stdout |
+| `PrintJSON(r Result) error` | Render JSON output to stdout |
+
 ## Key Data Structures
+
+### `swisseph` package
 
 - `PlanetPos` — Longitude, Latitude, Distance, SpeedLon, SpeedLat, SpeedDistance
 - `HouseResult` — Cusps[13], Ascendant, MC, ARMC, Vertex
+
+### `output` package
+
+- `Result` — JulianDay, HouseName, Lat, Lon, Planets, Ascendant, MC, Cusps
+- `PlanetEntry` — Name, Longitude, Sign, SignDegree, Speed
+- `AngleEntry` — Longitude, Sign, SignDegree
+- `CuspEntry` — House, Longitude, Sign, SignDegree
 
 ## Output JSON Shape
 
@@ -81,7 +124,7 @@ Binary `.se1` files in `ephe/` cover multiple epochs:
 - `semo_*.se1` — moon
 - `seas_*.se1` — stars
 
-The path is resolved relative to the executable at runtime via `SetEphePath`.
+The path is resolved relative to the executable at runtime via `SetEphePath`. If `os.Executable()` fails, `cmd.Run` returns a hard error. If the `ephe/` directory is simply absent at the resolved path, the Swiss Ephemeris library silently falls back to the built-in Moshier approximation (lower precision, no external files required).
 
 ## License
 
