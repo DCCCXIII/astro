@@ -1,6 +1,7 @@
 package swisseph_test
 
 import (
+	"fmt"
 	"math"
 	"os"
 	"testing"
@@ -49,18 +50,24 @@ func TestZodiacSign(t *testing.T) {
 		// Just before the next sign boundary
 		{29.999, "Aries", 29.999},
 		{359.9, "Pisces", 29.9},
-		// Exactly 360° — idx clamps to 11 (Pisces), degree = 30.0
-		{360.0, "Pisces", 30.0},
+		// Exactly 360° normalises to 0° (Aries)
+		{360.0, "Aries", 0.0},
+		// Negative longitudes (e.g. from retrograde offset arithmetic)
+		{-1.0, "Pisces", 29.0},
+		{-30.0, "Pisces", 0.0},
+		{-180.0, "Libra", 0.0},
 	}
 
 	for _, tc := range cases {
-		sign, deg := swisseph.ZodiacSign(tc.lon)
-		if sign != tc.sign {
-			t.Errorf("ZodiacSign(%.3f) sign = %q, want %q", tc.lon, sign, tc.sign)
-		}
-		if math.Abs(deg-tc.degrees) > 1e-9 {
-			t.Errorf("ZodiacSign(%.3f) degrees = %v, want %v", tc.lon, deg, tc.degrees)
-		}
+		t.Run(fmt.Sprintf("%.3f", tc.lon), func(t *testing.T) {
+			sign, deg := swisseph.ZodiacSign(tc.lon)
+			if sign != tc.sign {
+				t.Errorf("sign = %q, want %q", sign, tc.sign)
+			}
+			if math.Abs(deg-tc.degrees) > 1e-9 {
+				t.Errorf("degrees = %v, want %v", deg, tc.degrees)
+			}
+		})
 	}
 }
 
@@ -113,10 +120,12 @@ func TestPlanetName(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		got := swisseph.PlanetName(tc.id)
-		if got != tc.name {
-			t.Errorf("PlanetName(%d) = %q, want %q", tc.id, got, tc.name)
-		}
+		t.Run(tc.name, func(t *testing.T) {
+			got := swisseph.PlanetName(tc.id)
+			if got != tc.name {
+				t.Errorf("PlanetName(%d) = %q, want %q", tc.id, got, tc.name)
+			}
+		})
 	}
 }
 

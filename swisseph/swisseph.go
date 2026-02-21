@@ -12,6 +12,7 @@ package swisseph
 import "C"
 import (
 	"fmt"
+	"math"
 	"sync"
 	"unsafe"
 )
@@ -159,12 +160,18 @@ func CalcHouses(tjdUT float64, geoLat, geoLon float64, hsys byte) (HouseResult, 
 }
 
 // ZodiacSign returns the zodiac sign name and degree within that sign
-// for a given ecliptic longitude (0-360).
+// for a given ecliptic longitude. The input is normalised to [0, 360)
+// before computation, so values outside that range (including negative
+// values from retrograde offset arithmetic) are handled correctly.
 func ZodiacSign(longitude float64) (sign string, degrees float64) {
 	signs := [12]string{
 		"Aries", "Taurus", "Gemini", "Cancer",
 		"Leo", "Virgo", "Libra", "Scorpio",
 		"Sagittarius", "Capricorn", "Aquarius", "Pisces",
+	}
+	longitude = math.Mod(longitude, 360.0)
+	if longitude < 0 {
+		longitude += 360.0
 	}
 	idx := int(longitude / 30.0)
 	if idx >= 12 {
