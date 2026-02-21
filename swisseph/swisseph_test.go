@@ -79,10 +79,10 @@ func TestJulDay_KnownEpochs(t *testing.T) {
 	const epsilon = 1e-5 // well under a second of time
 
 	cases := []struct {
-		name        string
+		name             string
 		year, month, day int
-		hour        float64
-		want        float64
+		hour             float64
+		want             float64
 	}{
 		// J2000.0 is defined as JD 2451545.0 at 2000-01-01 12:00 UT.
 		{"J2000.0", 2000, 1, 1, 12.0, 2451545.0},
@@ -146,10 +146,10 @@ func TestCalcPlanet_J2000(t *testing.T) {
 	}
 
 	const (
-		wantLon    = 280.46
-		lonTol     = 1.0  // degrees; Moshier precision
-		wantSpeed  = 1.0  // degrees/day
-		speedTol   = 0.05 // degrees/day
+		wantLon   = 280.46
+		lonTol    = 1.0  // degrees; Moshier precision
+		wantSpeed = 1.0  // degrees/day
+		speedTol  = 0.05 // degrees/day
 	)
 
 	if math.Abs(pos.Longitude-wantLon) > lonTol {
