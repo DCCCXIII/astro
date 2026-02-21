@@ -18,7 +18,7 @@ import (
 func Run(args []string) error {
 	fs := flag.NewFlagSet("astro", flag.ContinueOnError)
 	fs.Usage = func() {
-		fmt.Fprintf(fs.Output(), "Usage: astro [--house-system <system>] [--json] <datetime> <lat> <lon>\n")
+		fmt.Fprintf(fs.Output(), "Usage: astro [--house-system <system>] [--json] [--verbose] <datetime> <lat> <lon>\n")
 		fmt.Fprintf(fs.Output(), "  <datetime>  ISO 8601 date/time in UTC, e.g. 2024-03-20T12:00:00Z\n")
 		fmt.Fprintf(fs.Output(), "  <lat>       geographic latitude in decimal degrees (north = positive)\n")
 		fmt.Fprintf(fs.Output(), "  <lon>       geographic longitude in decimal degrees (east = positive)\n\n")
@@ -27,6 +27,7 @@ func Run(args []string) error {
 
 	houseSystemFlag := fs.String("house-system", "placidus", "House system: placidus, koch, whole-sign, regiomontanus, equal, campanus")
 	jsonFlag := fs.Bool("json", false, "Output results as JSON")
+	verboseFlag := fs.Bool("verbose", false, "Verbose output: include ecliptic latitude, distance, speed components, ARMC, and Vertex")
 
 	if err := fs.Parse(args); err != nil {
 		if err == flag.ErrHelp {
@@ -83,9 +84,9 @@ func Run(args []string) error {
 	}
 
 	if *jsonFlag {
-		return output.PrintJSON(r)
+		return output.PrintJSON(r, *verboseFlag)
 	}
-	return output.PrintText(r)
+	return output.PrintText(r, *verboseFlag)
 }
 
 func parseHouseSystem(name string) (code byte, displayName string, err error) {

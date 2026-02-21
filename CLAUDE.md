@@ -47,7 +47,7 @@ Requires Go 1.25+ and a C compiler (GCC or Clang). No external C library install
 ## CLI Usage
 
 ```bash
-astro [--house-system <system>] [--json] <datetime> <lat> <lon>
+astro [--house-system <system>] [--json] [--verbose] <datetime> <lat> <lon>
 ```
 
 - `<datetime>`: UTC time in ISO 8601 (e.g. `2024-03-20T12:00:00Z`)
@@ -55,6 +55,7 @@ astro [--house-system <system>] [--json] <datetime> <lat> <lon>
 - `<lon>`: Decimal degrees, east positive
 - `--house-system`: `placidus` (default), `koch`, `whole-sign`, `regiomontanus`, `equal`, `campanus`
 - `--json`: Output JSON instead of human-readable text
+- `--verbose`: Include ecliptic latitude, distance, speed components, ARMC, and Vertex
 
 ## Package Overview
 
@@ -67,8 +68,8 @@ astro [--house-system <system>] [--json] <datetime> <lat> <lon>
 Three files with a clean separation of concerns:
 
 - **`result.go`** — `Build()` calls `swisseph.CalcPlanet` and `swisseph.CalcHouses`, assembles a `Result` struct. Neither renderer touches the C library.
-- **`text.go`** — `PrintText(r Result) error` writes human-readable output to stdout.
-- **`json.go`** — `PrintJSON(r Result) error` marshals to indented JSON and writes to stdout.
+- **`text.go`** — `PrintText(r Result, verbose bool) error` writes human-readable output to stdout.
+- **`json.go`** — `PrintJSON(r Result, verbose bool) error` marshals to indented JSON and writes to stdout.
 
 ### `swisseph`
 
@@ -96,8 +97,8 @@ Low-level cgo bindings. All C calls are mutex-protected for thread safety. Calle
 | Function | Description |
 |---|---|
 | `Build(jd, planets, lat, lon, hsys, hsysName)` | Compute full chart; returns `Result` or error |
-| `PrintText(r Result) error` | Render human-readable output to stdout |
-| `PrintJSON(r Result) error` | Render JSON output to stdout |
+| `PrintText(r Result, verbose bool) error` | Render human-readable output to stdout |
+| `PrintJSON(r Result, verbose bool) error` | Render JSON output to stdout |
 
 ## Key Data Structures
 
@@ -108,8 +109,8 @@ Low-level cgo bindings. All C calls are mutex-protected for thread safety. Calle
 
 ### `output` package
 
-- `Result` — JulianDay, HouseName, Lat, Lon, Planets, Ascendant, MC, Cusps
-- `PlanetEntry` — Name, Longitude, Sign, SignDegree, Speed
+- `Result` — JulianDay, HouseName, Lat, Lon, Planets, Ascendant, MC, ARMC, Vertex, Cusps
+- `PlanetEntry` — Name, Longitude, Sign, SignDegree, Speed, Latitude, Distance, SpeedLat, SpeedDistance
 - `AngleEntry` — Longitude, Sign, SignDegree
 - `CuspEntry` — House, Longitude, Sign, SignDegree
 

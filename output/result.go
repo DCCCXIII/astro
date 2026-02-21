@@ -7,12 +7,17 @@ import (
 )
 
 // PlanetEntry holds presentation-ready data for a single planet.
+// It is a pure internal data carrier; json.go owns all wire-format decisions.
 type PlanetEntry struct {
-	Name       string  `json:"name"`
-	Longitude  float64 `json:"longitude"`
-	Sign       string  `json:"sign"`
-	SignDegree float64 `json:"sign_degree"`
-	Speed      float64 `json:"speed"`
+	Name          string
+	Longitude     float64
+	Sign          string
+	SignDegree    float64
+	Speed         float64
+	Latitude      float64
+	Distance      float64
+	SpeedLat      float64
+	SpeedDistance float64
 }
 
 // AngleEntry holds presentation-ready data for a chart angle (Ascendant, MC).
@@ -32,6 +37,9 @@ type CuspEntry struct {
 
 // Result holds all computed, presentation-ready chart data. Both PrintText
 // and PrintJSON render from this struct; neither calls swisseph directly.
+// All fields — including ARMC, Vertex, and the verbose planet fields
+// (Latitude, Distance, SpeedLat, SpeedDistance) — are always populated by
+// Build(). Renderers decide which fields to surface based on the verbose flag.
 type Result struct {
 	JulianDay float64
 	HouseName string
@@ -40,6 +48,8 @@ type Result struct {
 	Planets   []PlanetEntry
 	Ascendant AngleEntry
 	MC        AngleEntry
+	ARMC      float64     // sidereal time in degrees
+	Vertex    AngleEntry  // ecliptic longitude of the Vertex
 	Cusps     []CuspEntry // one entry per house, 1-12
 }
 
@@ -56,11 +66,15 @@ func Build(jd float64, planets []int, lat, lon float64, hsys byte, hsysName stri
 		}
 		sign, deg := swisseph.ZodiacSign(pos.Longitude)
 		r.Planets = append(r.Planets, PlanetEntry{
-			Name:       name,
-			Longitude:  pos.Longitude,
-			Sign:       sign,
-			SignDegree: deg,
-			Speed:      pos.SpeedLon,
+			Name:          name,
+			Longitude:     pos.Longitude,
+			Sign:          sign,
+			SignDegree:    deg,
+			Speed:         pos.SpeedLon,
+			Latitude:      pos.Latitude,
+			Distance:      pos.Distance,
+			SpeedLat:      pos.SpeedLat,
+			SpeedDistance: pos.SpeedDistance,
 		})
 	}
 
@@ -71,8 +85,11 @@ func Build(jd float64, planets []int, lat, lon float64, hsys byte, hsysName stri
 
 	ascSign, ascDeg := swisseph.ZodiacSign(houses.Ascendant)
 	mcSign, mcDeg := swisseph.ZodiacSign(houses.MC)
+	vtxSign, vtxDeg := swisseph.ZodiacSign(houses.Vertex)
 	r.Ascendant = AngleEntry{Longitude: houses.Ascendant, Sign: ascSign, SignDegree: ascDeg}
 	r.MC = AngleEntry{Longitude: houses.MC, Sign: mcSign, SignDegree: mcDeg}
+	r.ARMC = houses.ARMC
+	r.Vertex = AngleEntry{Longitude: houses.Vertex, Sign: vtxSign, SignDegree: vtxDeg}
 
 	for i := 1; i <= 12; i++ {
 		sign, deg := swisseph.ZodiacSign(houses.Cusps[i])
