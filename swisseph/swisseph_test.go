@@ -140,9 +140,12 @@ func TestPlanetName(t *testing.T) {
 func TestCalcPlanet_J2000(t *testing.T) {
 	jd := swisseph.JulDay(2000, 1, 1, 12.0)
 
-	pos, err := swisseph.CalcPlanet(jd, swisseph.Sun)
+	pos, warn, err := swisseph.CalcPlanet(jd, swisseph.Sun)
 	if err != nil {
 		t.Fatalf("CalcPlanet(Sun) unexpected error: %v", err)
+	}
+	if warn != "" {
+		t.Logf("running under Moshier fallback: %s", warn)
 	}
 
 	const (
@@ -185,9 +188,12 @@ func TestCalcPlanet_AllPlanets(t *testing.T) {
 
 	for _, p := range planets {
 		t.Run(p.name, func(t *testing.T) {
-			pos, err := swisseph.CalcPlanet(jd, p.id)
+			pos, warn, err := swisseph.CalcPlanet(jd, p.id)
 			if err != nil {
 				t.Fatalf("CalcPlanet(%s) error: %v", p.name, err)
+			}
+			if warn != "" {
+				t.Logf("running under Moshier fallback: %s", warn)
 			}
 			if pos.Longitude < 0 || pos.Longitude >= 360 {
 				t.Errorf("CalcPlanet(%s) longitude = %.4f°, want [0, 360)", p.name, pos.Longitude)

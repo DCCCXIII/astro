@@ -41,16 +41,17 @@ type CuspEntry struct {
 // (Latitude, Distance, SpeedLat, SpeedDistance) — are always populated by
 // Build(). Renderers decide which fields to surface based on the verbose flag.
 type Result struct {
-	JulianDay float64
-	HouseName string
-	Lat       float64
-	Lon       float64
-	Planets   []PlanetEntry
-	Ascendant AngleEntry
-	MC        AngleEntry
-	ARMC      float64     // sidereal time in degrees
-	Vertex    AngleEntry  // ecliptic longitude of the Vertex
-	Cusps     []CuspEntry // one entry per house, 1-12
+	JulianDay        float64
+	HouseName        string
+	Lat              float64
+	Lon              float64
+	Planets          []PlanetEntry
+	Ascendant        AngleEntry
+	MC               AngleEntry
+	ARMC             float64     // sidereal time in degrees
+	Vertex           AngleEntry  // ecliptic longitude of the Vertex
+	Cusps            []CuspEntry // one entry per house, 1-12
+	EphemerisWarning string      // non-empty when the library fell back to Moshier
 }
 
 // Build computes a full chart result for the given Julian Day, planets, and
@@ -60,9 +61,15 @@ func Build(jd float64, planets []int, lat, lon float64, hsys byte, hsysName stri
 
 	for _, p := range planets {
 		name := swisseph.PlanetName(p)
-		pos, err := swisseph.CalcPlanet(jd, p)
+		pos, warning, err := swisseph.CalcPlanet(jd, p)
 		if err != nil {
 			return Result{}, fmt.Errorf("error calculating %s: %w", name, err)
+		}
+		// The Moshier fallback produces the same warning text for every planet,
+		// so capturing the first non-empty warning is sufficient to represent
+		// the fallback condition for the entire calculation.
+		if warning != "" && r.EphemerisWarning == "" {
+			r.EphemerisWarning = warning
 		}
 		sign, deg := swisseph.ZodiacSign(pos.Longitude)
 		r.Planets = append(r.Planets, PlanetEntry{

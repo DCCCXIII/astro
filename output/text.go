@@ -11,7 +11,11 @@ const planetNameWidth = 10
 // cusps to stdout. When verbose is true, additional raw data is included
 // (ecliptic latitude, distance, latitude/distance speeds, ARMC, Vertex).
 func PrintText(r Result, verbose bool) error {
-	fmt.Printf("Julian Day: %.6f\n\n", r.JulianDay)
+	fmt.Printf("Julian Day: %.6f\n", r.JulianDay)
+	if verbose && r.EphemerisWarning != "" {
+		fmt.Printf("Ephemeris:  %s\n", r.EphemerisWarning)
+	}
+	fmt.Println()
 
 	fmt.Println("=== Planetary Positions ===")
 	for _, p := range r.Planets {

@@ -27,9 +27,10 @@ type housesJSON struct {
 }
 
 type resultJSON struct {
-	JulianDay float64      `json:"julian_day"`
-	Planets   []planetJSON `json:"planets"`
-	Houses    housesJSON   `json:"houses"`
+	JulianDay        float64      `json:"julian_day"`
+	Planets          []planetJSON `json:"planets"`
+	Houses           housesJSON   `json:"houses"`
+	EphemerisWarning *string      `json:"ephemeris_warning,omitempty"`
 }
 
 // PrintJSON writes planetary positions and house cusps as indented JSON to
@@ -70,6 +71,9 @@ func PrintJSON(r Result, verbose bool) error {
 		JulianDay: r.JulianDay,
 		Planets:   planets,
 		Houses:    houses,
+	}
+	if verbose && r.EphemerisWarning != "" {
+		out.EphemerisWarning = &r.EphemerisWarning
 	}
 
 	data, err := json.MarshalIndent(out, "", "  ")
