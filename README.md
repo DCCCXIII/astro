@@ -24,10 +24,12 @@ This tool's calculations implement specific historical astrological methods — 
 ## Building
 
 ```bash
-go build -o astro .
+make
 ```
 
-The Swiss Ephemeris C sources are bundled in the `swisseph/` directory and compiled automatically by cgo during `go build`. No external library installation is needed.
+This runs `go fmt`, `go vet`, `go test`, then `go build`, producing the `astro` binary. The Swiss Ephemeris C sources are bundled in the `swisseph/` directory and compiled automatically by cgo during the build. No external library installation is needed.
+
+Other targets: `make test` (fmt, vet, verbose tests), `make fmt`, `make vet`.
 
 ## Running
 
