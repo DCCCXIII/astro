@@ -12,6 +12,10 @@ Go bindings for the [Swiss Ephemeris](https://www.astro.com/swisseph/) C library
 - Zodiac sign conversion utility
 - Thread-safe: all calls to the underlying C library are protected by a mutex
 
+## Background
+
+This tool's calculations implement specific historical astrological methods — Lilly's *Christian Astrology*, Ibn Ezra's Almuten Figuris, Bonatti's Almudebit, and the underlying essential-dignity tables (domicile, exaltation, triplicity, terms, faces) — rather than a single modern synthesis. See [docs/](docs/README.md) for the historical sources, scoring logic, and explicit notes on where this implementation makes a specific choice among several traditional variants.
+
 ## Prerequisites
 
 - Go 1.25+
@@ -20,10 +24,12 @@ Go bindings for the [Swiss Ephemeris](https://www.astro.com/swisseph/) C library
 ## Building
 
 ```bash
-go build -o astro .
+make
 ```
 
-The Swiss Ephemeris C sources are bundled in the `swisseph/` directory and compiled automatically by cgo during `go build`. No external library installation is needed.
+This runs `go fmt`, `go vet`, `go test`, then `go build`, producing the `astro` binary. The Swiss Ephemeris C sources are bundled in the `swisseph/` directory and compiled automatically by cgo during the build. No external library installation is needed.
+
+Other targets: `make test` (fmt, vet, verbose tests), `make fmt`, `make vet`.
 
 ## Running
 
