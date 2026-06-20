@@ -1,6 +1,9 @@
 package output
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 // planetNameWidth is the column width used for planet names in the primary
 // planet line ("%-10s"). The verbose continuation line uses the same width
@@ -38,6 +41,23 @@ func PrintText(r Result, verbose bool) error {
 	fmt.Println("\nHouse cusps:")
 	for _, c := range r.Cusps {
 		fmt.Printf("  House %2d: %9.4f°  (%s %.2f°)\n", c.House, c.Longitude, c.Sign, c.SignDegree)
+	}
+
+	for _, a := range r.Almuten {
+		fmt.Printf("\n=== Almuten: %s ===\n", a.Method)
+		victor := "none"
+		if len(a.Winners) > 0 {
+			victor = strings.Join(a.Winners, ", ")
+			if len(a.Winners) > 1 {
+				victor += " (tie)"
+			}
+		}
+		fmt.Printf("Victor: %s\n", victor)
+		if verbose {
+			for _, sc := range a.Scoreboard {
+				fmt.Printf("  %-*s  %+d\n", planetNameWidth, sc.Planet, sc.Score)
+			}
+		}
 	}
 	return nil
 }

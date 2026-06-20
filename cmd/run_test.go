@@ -52,3 +52,38 @@ func TestParseHouseSystem(t *testing.T) {
 		})
 	}
 }
+
+func TestParseAlmutenMode(t *testing.T) {
+	cases := []struct {
+		input   string
+		want    string
+		wantErr bool
+	}{
+		{"", "", false},
+		{"geniture", "geniture", false},
+		{"figuris", "figuris", false},
+		{"both", "both", false},
+		{"Geniture", "geniture", false}, // case-insensitive
+		{"BOTH", "both", false},
+		{"lord", "", true},
+		{"unknown", "", true},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.input, func(t *testing.T) {
+			got, err := parseAlmutenMode(tc.input)
+			if tc.wantErr {
+				if err == nil {
+					t.Errorf("expected error, got nil")
+				}
+				return
+			}
+			if err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+			if got != tc.want {
+				t.Errorf("mode = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}

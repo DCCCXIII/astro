@@ -26,11 +26,18 @@ type housesJSON struct {
 	Cusps     []CuspEntry `json:"cusps"`
 }
 
+type almutenJSON struct {
+	Method     string         `json:"method"`
+	Winners    []string       `json:"winners"`
+	Scoreboard []AlmutenScore `json:"scoreboard,omitempty"`
+}
+
 type resultJSON struct {
-	JulianDay        float64      `json:"julian_day"`
-	Planets          []planetJSON `json:"planets"`
-	Houses           housesJSON   `json:"houses"`
-	EphemerisWarning *string      `json:"ephemeris_warning,omitempty"`
+	JulianDay        float64       `json:"julian_day"`
+	Planets          []planetJSON  `json:"planets"`
+	Houses           housesJSON    `json:"houses"`
+	Almuten          []almutenJSON `json:"almuten,omitempty"`
+	EphemerisWarning *string       `json:"ephemeris_warning,omitempty"`
 }
 
 // PrintJSON writes planetary positions and house cusps as indented JSON to
@@ -71,6 +78,13 @@ func PrintJSON(r Result, verbose bool) error {
 		JulianDay: r.JulianDay,
 		Planets:   planets,
 		Houses:    houses,
+	}
+	for _, a := range r.Almuten {
+		entry := almutenJSON{Method: a.Method, Winners: a.Winners}
+		if verbose {
+			entry.Scoreboard = a.Scoreboard
+		}
+		out.Almuten = append(out.Almuten, entry)
 	}
 	if verbose && r.EphemerisWarning != "" {
 		out.EphemerisWarning = &r.EphemerisWarning

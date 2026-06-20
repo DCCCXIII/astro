@@ -2,7 +2,9 @@ package output
 
 import (
 	"fmt"
+	"sort"
 
+	"github.com/dcccxiii/astro/almuten"
 	"github.com/dcccxiii/astro/swisseph"
 )
 
@@ -48,10 +50,71 @@ type Result struct {
 	Planets          []PlanetEntry
 	Ascendant        AngleEntry
 	MC               AngleEntry
-	ARMC             float64     // sidereal time in degrees
-	Vertex           AngleEntry  // ecliptic longitude of the Vertex
-	Cusps            []CuspEntry // one entry per house, 1-12
-	EphemerisWarning string      // non-empty when the library fell back to Moshier
+	ARMC             float64        // sidereal time in degrees
+	Vertex           AngleEntry     // ecliptic longitude of the Vertex
+	Cusps            []CuspEntry    // one entry per house, 1-12
+	EphemerisWarning string         // non-empty when the library fell back to Moshier
+	Almuten          []AlmutenEntry // chart-victor results, one per algorithm requested
+}
+
+// AlmutenScore is a single planet's net score in an almuten scorecard.
+type AlmutenScore struct {
+	Planet string `json:"planet"`
+	Score  int    `json:"score"`
+}
+
+// AlmutenEntry holds the result of one chart-victor algorithm: the method name,
+// every planet tied for the highest score, and the full scorecard (descending).
+type AlmutenEntry struct {
+	Method     string         `json:"method"`
+	Winners    []string       `json:"winners"`
+	Scoreboard []AlmutenScore `json:"scoreboard"`
+}
+
+// BuildAlmuten computes the requested chart-victor algorithm(s) for the given
+// moment and location. mode is "geniture", "figuris", or "both". The chart is
+// built once and reused. All swisseph access happens inside the almuten package.
+func BuildAlmuten(jd, lat, lon float64, hsys byte, mode string) ([]AlmutenEntry, error) {
+	chart, err := almuten.BuildChart(jd, lat, lon, hsys)
+	if err != nil {
+		return nil, fmt.Errorf("building chart: %w", err)
+	}
+
+	var entries []AlmutenEntry
+	if mode == "geniture" || mode == "both" {
+		score, winners := almuten.LordOfGeniture(chart, almuten.DefaultOptions())
+		entries = append(entries, almutenEntry("Lord of the Geniture", score, winners))
+	}
+	if mode == "figuris" || mode == "both" {
+		score, winners, err := almuten.AlmutenFiguris(chart, almuten.DefaultOptions())
+		if err != nil {
+			return nil, fmt.Errorf("computing almuten figuris: %w", err)
+		}
+		entries = append(entries, almutenEntry("Almuten Figuris", score, winners))
+	}
+	return entries, nil
+}
+
+// almutenEntry converts an almuten scorecard into a presentation-ready entry,
+// with the scoreboard sorted by score (descending) then traditional planet order.
+func almutenEntry(method string, score almuten.Scorecard, winners []int) AlmutenEntry {
+	board := make([]AlmutenScore, 0, len(almuten.Planets))
+	for _, p := range almuten.Planets {
+		board = append(board, AlmutenScore{Planet: swisseph.PlanetName(p), Score: score[p]})
+	}
+	sort.SliceStable(board, func(i, j int) bool {
+		if board[i].Score != board[j].Score {
+			return board[i].Score > board[j].Score
+		}
+		return false
+	})
+
+	names := make([]string, len(winners))
+	for i, p := range winners {
+		names[i] = swisseph.PlanetName(p)
+	}
+
+	return AlmutenEntry{Method: method, Winners: names, Scoreboard: board}
 }
 
 // Build computes a full chart result for the given Julian Day, planets, and
