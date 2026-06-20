@@ -18,7 +18,7 @@ import (
 func Run(args []string) error {
 	fs := flag.NewFlagSet("astro", flag.ContinueOnError)
 	fs.Usage = func() {
-		fmt.Fprintf(fs.Output(), "Usage: astro [--house-system <system>] [--json] [--verbose] <datetime> <lat> <lon>\n")
+		fmt.Fprintf(fs.Output(), "Usage: astro [--house-system <system>] [--almuten <mode>] [--json] [--verbose] <datetime> <lat> <lon>\n")
 		fmt.Fprintf(fs.Output(), "  <datetime>  ISO 8601 date/time in UTC, e.g. 2024-03-20T12:00:00Z\n")
 		fmt.Fprintf(fs.Output(), "  <lat>       geographic latitude in decimal degrees (north = positive)\n")
 		fmt.Fprintf(fs.Output(), "  <lon>       geographic longitude in decimal degrees (east = positive)\n\n")
@@ -26,6 +26,7 @@ func Run(args []string) error {
 	}
 
 	houseSystemFlag := fs.String("house-system", "placidus", "House system: placidus, koch, whole-sign, regiomontanus, equal, campanus")
+	almutenFlag := fs.String("almuten", "", "Chart victor: geniture (Lilly's Lord of the Geniture), figuris (Ibn Ezra), bonatti (Bonatti's Almudebit), both (geniture+figuris), or all")
 	jsonFlag := fs.Bool("json", false, "Output results as JSON")
 	verboseFlag := fs.Bool("verbose", false, "Verbose output: include ecliptic latitude, distance, speed components, ARMC, and Vertex")
 
@@ -62,6 +63,11 @@ func Run(args []string) error {
 		return err
 	}
 
+	almutenMode, err := parseAlmutenMode(*almutenFlag)
+	if err != nil {
+		return err
+	}
+
 	exe, err := os.Executable()
 	if err != nil {
 		return fmt.Errorf("could not resolve executable path: %w", err)
@@ -83,10 +89,30 @@ func Run(args []string) error {
 		return err
 	}
 
+	if almutenMode != "" {
+		r.Almuten, err = output.BuildAlmuten(jd, lat, lon, hsys, almutenMode)
+		if err != nil {
+			return err
+		}
+	}
+
 	if *jsonFlag {
 		return output.PrintJSON(r, *verboseFlag)
 	}
 	return output.PrintText(r, *verboseFlag)
+}
+
+// parseAlmutenMode validates the --almuten flag value. An empty value means no
+// almuten calculation was requested.
+func parseAlmutenMode(mode string) (string, error) {
+	switch strings.ToLower(mode) {
+	case "":
+		return "", nil
+	case "geniture", "figuris", "bonatti", "both", "all":
+		return strings.ToLower(mode), nil
+	default:
+		return "", fmt.Errorf("unknown almuten mode %q: valid values are geniture, figuris, bonatti, both, all", mode)
+	}
 }
 
 func parseHouseSystem(name string) (code byte, displayName string, err error) {
