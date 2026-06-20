@@ -26,7 +26,7 @@ func Run(args []string) error {
 	}
 
 	houseSystemFlag := fs.String("house-system", "placidus", "House system: placidus, koch, whole-sign, regiomontanus, equal, campanus")
-	almutenFlag := fs.String("almuten", "", "Chart victor: geniture (Lilly's Lord of the Geniture), figuris (Ibn Ezra), or both")
+	almutenFlag := fs.String("almuten", "", "Chart victor: geniture (Lilly's Lord of the Geniture), figuris (Ibn Ezra), bonatti (Bonatti's Almudebit), both (geniture+figuris), or all")
 	jsonFlag := fs.Bool("json", false, "Output results as JSON")
 	verboseFlag := fs.Bool("verbose", false, "Verbose output: include ecliptic latitude, distance, speed components, ARMC, and Vertex")
 
@@ -108,10 +108,10 @@ func parseAlmutenMode(mode string) (string, error) {
 	switch strings.ToLower(mode) {
 	case "":
 		return "", nil
-	case "geniture", "figuris", "both":
+	case "geniture", "figuris", "bonatti", "both", "all":
 		return strings.ToLower(mode), nil
 	default:
-		return "", fmt.Errorf("unknown almuten mode %q: valid values are geniture, figuris, both", mode)
+		return "", fmt.Errorf("unknown almuten mode %q: valid values are geniture, figuris, bonatti, both, all", mode)
 	}
 }
 

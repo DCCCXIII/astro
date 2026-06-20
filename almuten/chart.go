@@ -1,7 +1,8 @@
 // Package almuten computes traditional "chart victor" rulers: Lilly's Lord of
-// the Geniture and (Phase 2) Ibn Ezra's Almuten Figuris. Both build a per-planet
-// integer scorecard and return its argmax. swisseph is the only cgo boundary;
-// the scoring tables live in the pure-Go dignities package.
+// the Geniture, Ibn Ezra's Almuten Figuris, and Guido Bonatti's Almudebit. All
+// three build a per-planet integer scorecard and return its argmax. swisseph
+// is the only cgo boundary; the scoring tables live in the pure-Go dignities
+// package.
 package almuten
 
 import (
@@ -21,9 +22,10 @@ var Planets = []int{
 // Scorecard maps a planet ID (swisseph constant) to its integer score.
 type Scorecard map[int]int
 
-// Chart gathers every input the scoring algorithms need, computed once. The
-// Phase-2 fields (PartFortune, Syzygy, SyzygyType, DayRuler, HourRuler) are
-// populated only by the Almuten Figuris path.
+// Chart gathers every input the scoring algorithms need, computed once.
+// PartFortune, Syzygy, and SyzygyType are populated by computeVitalPoints,
+// shared by AlmutenFiguris and AlmutenBonatti. DayRuler and HourRuler
+// (temporal rulers) are populated only by the Almuten Figuris path.
 type Chart struct {
 	JD        float64
 	Lat, Lon  float64
@@ -87,6 +89,27 @@ func BuildChart(jd, lat, lon float64, hsys byte) (Chart, error) {
 	c.IsDiurnal = houseOf(c.Positions[swisseph.Sun].Longitude, houses.Cusps) >= 7
 
 	return c, nil
+}
+
+// computeVitalPoints fills the Part of Fortune and prenatal syzygy, shared by
+// any algorithm that scores essential dignities at those points.
+func (c *Chart) computeVitalPoints() error {
+	asc := c.Houses.Ascendant
+	sun := c.Positions[swisseph.Sun].Longitude
+	moon := c.Positions[swisseph.Moon].Longitude
+
+	if c.IsDiurnal {
+		c.PartFortune = norm360(asc + moon - sun)
+	} else {
+		c.PartFortune = norm360(asc + sun - moon)
+	}
+
+	syz, kind, err := PrenatalSyzygy(c.JD, c.Lat, c.Lon)
+	if err != nil {
+		return err
+	}
+	c.Syzygy, c.SyzygyType = syz, kind
+	return nil
 }
 
 // --- geometric helpers -----------------------------------------------------

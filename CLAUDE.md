@@ -23,6 +23,7 @@ astro/
 │   ├── chart.go         # BuildChart, Chart, Scorecard, Options, geometric helpers
 │   ├── geniture.go      # LordOfGeniture — Lilly's Christian Astrology p.115 scorecard
 │   ├── figuris.go       # AlmutenFiguris — Ibn Ezra's five-place scorecard
+│   ├── bonatti.go       # AlmutenBonatti — Bonatti's Almudebit (angles + vital points + dispositors)
 │   └── syzygy.go        # Prenatal new/full-moon finder (pure Go on CalcPlanet)
 ├── swisseph/
 │   ├── swisseph.go      # Go cgo bindings to Swiss Ephemeris
@@ -66,7 +67,7 @@ astro [--house-system <system>] [--almuten <mode>] [--json] [--verbose] <datetim
 - `<lat>`: Decimal degrees, north positive
 - `<lon>`: Decimal degrees, east positive
 - `--house-system`: `placidus` (default), `koch`, `whole-sign`, `regiomontanus`, `equal`, `campanus`
-- `--almuten`: `geniture` (Lilly's Lord of the Geniture), `figuris` (Ibn Ezra's Almuten Figuris), or `both`. Omitted = no almuten section.
+- `--almuten`: `geniture` (Lilly's Lord of the Geniture), `figuris` (Ibn Ezra's Almuten Figuris), `bonatti` (Bonatti's Almudebit), `both` (geniture+figuris), or `all`. Omitted = no almuten section.
 - `--json`: Output JSON instead of human-readable text
 - `--verbose`: Include ecliptic latitude, distance, speed components, ARMC, Vertex, the almuten scoreboard table, and ephemeris source warning (if Moshier fallback is active). Without `--verbose`, almuten output shows only the victor(s).
 
@@ -90,7 +91,7 @@ Pure-Go static tables (domicile/detriment, exaltation/fall, Dorothean triplicity
 
 ### `almuten`
 
-Orchestration. `BuildChart` gathers positions, lunar node, houses, and sect once into a `Chart`. `LordOfGeniture` and `AlmutenFiguris` each return a `Scorecard` (`map[int]int`) plus the tied winners. Figuris-only inputs (Part of Fortune, prenatal syzygy, weekday/planetary-hour rulers) are computed lazily inside `AlmutenFiguris`. `Options` exposes the spec's variant toggles (`DefaultOptions()` for the recommended defaults).
+Orchestration. `BuildChart` gathers positions, lunar node, houses, and sect once into a `Chart`. `LordOfGeniture`, `AlmutenFiguris`, and `AlmutenBonatti` each return a `Scorecard` (`map[int]int`) plus the tied winners. Part of Fortune and prenatal syzygy are shared via `Chart.computeVitalPoints()`; Figuris additionally derives weekday/planetary-hour rulers. Bonatti scores the four angles and four vital points, then chases each angle's triplicity lords and each vital point's domicile lord to their own chart position for a second scoring pass — no accidental house, temporal, or synodic points. `Options` exposes the spec's variant toggles (`DefaultOptions()` for the recommended defaults).
 
 ### `swisseph`
 
@@ -120,7 +121,7 @@ Low-level cgo bindings. All C calls are mutex-protected for thread safety. Calle
 | Function | Description |
 |---|---|
 | `Build(jd, planets, lat, lon, hsys, hsysName)` | Compute full chart; returns `Result` or error |
-| `BuildAlmuten(jd, lat, lon, hsys, mode)` | Compute `[]AlmutenEntry` for `mode` in `geniture`/`figuris`/`both` |
+| `BuildAlmuten(jd, lat, lon, hsys, mode)` | Compute `[]AlmutenEntry` for `mode` in `geniture`/`figuris`/`bonatti`/`both`/`all` |
 | `PrintText(r Result, verbose bool) error` | Render human-readable output to stdout |
 | `PrintJSON(r Result, verbose bool) error` | Render JSON output to stdout |
 
@@ -131,6 +132,7 @@ Low-level cgo bindings. All C calls are mutex-protected for thread safety. Calle
 | `BuildChart(jd, lat, lon, hsys) (Chart, error)` | Gather positions, node, houses, sect once |
 | `LordOfGeniture(c, opts) (Scorecard, []int)` | Lilly's scorecard + tied winners |
 | `AlmutenFiguris(c, opts) (Scorecard, []int, error)` | Ibn Ezra's scorecard + tied winners |
+| `AlmutenBonatti(c, opts) (Scorecard, []int, error)` | Bonatti's Almudebit scorecard + tied winners |
 | `PrenatalSyzygy(jd, lat, lon) (lon, kind, error)` | Most recent new/full moon before `jd` |
 | `DefaultOptions()` | Recommended variant defaults |
 

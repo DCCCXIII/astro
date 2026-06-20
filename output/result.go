@@ -72,8 +72,9 @@ type AlmutenEntry struct {
 }
 
 // BuildAlmuten computes the requested chart-victor algorithm(s) for the given
-// moment and location. mode is "geniture", "figuris", or "both". The chart is
-// built once and reused. All swisseph access happens inside the almuten package.
+// moment and location. mode is "geniture", "figuris", "bonatti", "both"
+// (geniture+figuris), or "all". The chart is built once and reused. All
+// swisseph access happens inside the almuten package.
 func BuildAlmuten(jd, lat, lon float64, hsys byte, mode string) ([]AlmutenEntry, error) {
 	chart, err := almuten.BuildChart(jd, lat, lon, hsys)
 	if err != nil {
@@ -81,16 +82,23 @@ func BuildAlmuten(jd, lat, lon float64, hsys byte, mode string) ([]AlmutenEntry,
 	}
 
 	var entries []AlmutenEntry
-	if mode == "geniture" || mode == "both" {
+	if mode == "geniture" || mode == "both" || mode == "all" {
 		score, winners := almuten.LordOfGeniture(chart, almuten.DefaultOptions())
 		entries = append(entries, almutenEntry("Lord of the Geniture", score, winners))
 	}
-	if mode == "figuris" || mode == "both" {
+	if mode == "figuris" || mode == "both" || mode == "all" {
 		score, winners, err := almuten.AlmutenFiguris(chart, almuten.DefaultOptions())
 		if err != nil {
 			return nil, fmt.Errorf("computing almuten figuris: %w", err)
 		}
 		entries = append(entries, almutenEntry("Almuten Figuris", score, winners))
+	}
+	if mode == "bonatti" || mode == "all" {
+		score, winners, err := almuten.AlmutenBonatti(chart, almuten.DefaultOptions())
+		if err != nil {
+			return nil, fmt.Errorf("computing almuten bonatti: %w", err)
+		}
+		entries = append(entries, almutenEntry("Bonatti's Almudebit", score, winners))
 	}
 	return entries, nil
 }

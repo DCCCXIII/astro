@@ -107,28 +107,13 @@ func adjustedHouse(lon float64, cusps [13]float64) int {
 	return houseOf(lon, cusps)
 }
 
-// prepareFiguris fills the Figuris-specific chart inputs: Part of Fortune,
-// prenatal syzygy, and the weekday and planetary-hour rulers.
+// prepareFiguris fills the Figuris-specific chart inputs (weekday and
+// planetary-hour rulers) on top of the shared vital points (Part of Fortune,
+// prenatal syzygy) computed by computeVitalPoints.
 func (c *Chart) prepareFiguris() error {
-	asc := c.Houses.Ascendant
-	sun := c.Positions[swisseph.Sun].Longitude
-	moon := c.Positions[swisseph.Moon].Longitude
-
-	// Part of Fortune (sect-dependent).
-	if c.IsDiurnal {
-		c.PartFortune = norm360(asc + moon - sun)
-	} else {
-		c.PartFortune = norm360(asc + sun - moon)
-	}
-
-	// Prenatal syzygy.
-	syz, kind, err := PrenatalSyzygy(c.JD, c.Lat, c.Lon)
-	if err != nil {
+	if err := c.computeVitalPoints(); err != nil {
 		return err
 	}
-	c.Syzygy, c.SyzygyType = syz, kind
-
-	// Weekday and planetary-hour rulers.
 	return c.computeTemporalRulers()
 }
 

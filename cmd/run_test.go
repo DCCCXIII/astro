@@ -62,7 +62,9 @@ func TestParseAlmutenMode(t *testing.T) {
 		{"", "", false},
 		{"geniture", "geniture", false},
 		{"figuris", "figuris", false},
+		{"bonatti", "bonatti", false},
 		{"both", "both", false},
+		{"all", "all", false},
 		{"Geniture", "geniture", false}, // case-insensitive
 		{"BOTH", "both", false},
 		{"lord", "", true},

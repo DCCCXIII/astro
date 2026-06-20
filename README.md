@@ -7,7 +7,7 @@ Go bindings for the [Swiss Ephemeris](https://www.astro.com/swisseph/) C library
 - Planetary position calculations (ecliptic longitude, latitude, distance, and daily speeds) for the seven traditional planets: Sun, Moon, Mercury, Venus, Mars, Jupiter, and Saturn
 - House cusp calculations with support for multiple house systems (Placidus, Koch, Whole Sign, Regiomontanus, Equal, Campanus)
 - Ascendant, Midheaven (MC), ARMC, and Vertex angles
-- Traditional "chart victor" (almuten) calculations: Lilly's Lord of the Geniture (*Christian Astrology* p.115) and Ibn Ezra's Almuten Figuris
+- Traditional "chart victor" (almuten) calculations: Lilly's Lord of the Geniture (*Christian Astrology* p.115), Ibn Ezra's Almuten Figuris, and Bonatti's Almudebit (*Liber Astronomiae*)
 - Fixed-star and rise/set helpers, and a pure-Go `dignities` package of essential-dignity tables (domicile, exaltation, triplicity, terms, faces)
 - Zodiac sign conversion utility
 - Thread-safe: all calls to the underlying C library are protected by a mutex
@@ -44,7 +44,7 @@ astro [--house-system <system>] [--almuten <mode>] [--json] [--verbose] <datetim
 | Flag | Default | Description |
 |---|---|---|
 | `--house-system` | `placidus` | House system: `placidus`, `koch`, `whole-sign`, `regiomontanus`, `equal`, `campanus` |
-| `--almuten` | — | Chart victor: `geniture` (Lilly's Lord of the Geniture), `figuris` (Ibn Ezra's Almuten Figuris), or `both`. Omit for no almuten output |
+| `--almuten` | — | Chart victor: `geniture` (Lilly's Lord of the Geniture), `figuris` (Ibn Ezra's Almuten Figuris), `bonatti` (Bonatti's Almudebit), `both` (geniture+figuris), or `all`. Omit for no almuten output |
 | `--json` | — | Output results as JSON instead of human-readable text |
 | `--verbose` | — | Include ecliptic latitude, distance, speed components, ARMC, Vertex, the almuten scoreboard, and ephemeris source warning (if Moshier fallback is active) |
 
@@ -71,8 +71,14 @@ The binary looks for ephemeris data files (`.se1`) in an `ephe/` directory next 
 # Chart victor (almuten): victor only
 ./astro --almuten geniture 2024-03-20T12:00:00Z 40.7128 -74.0060
 
-# Both algorithms with the full scoreboard
+# Both Lilly/Ibn Ezra algorithms with the full scoreboard
 ./astro --almuten both --verbose 2024-03-20T12:00:00Z 40.7128 -74.0060
+
+# Bonatti's Almudebit
+./astro --almuten bonatti 2024-03-20T12:00:00Z 40.7128 -74.0060
+
+# All three algorithms
+./astro --almuten all --verbose 2024-03-20T12:00:00Z 40.7128 -74.0060
 ```
 
 ### Example output (human-readable)
@@ -181,7 +187,7 @@ The `swisseph` package exposes the low-level bindings:
 ### Higher-level packages
 
 - **`dignities`** — pure-Go essential-dignity tables and lookups (`DomicileRuler`, `ExaltationRuler`, `ActiveTriplicityRuler`, `TermRuler`, `FaceRuler`, …). No cgo.
-- **`almuten`** — chart-victor algorithms: `BuildChart` assembles a `Chart` once, then `LordOfGeniture` and `AlmutenFiguris` return a `Scorecard` plus the tied winners.
+- **`almuten`** — chart-victor algorithms: `BuildChart` assembles a `Chart` once, then `LordOfGeniture`, `AlmutenFiguris`, and `AlmutenBonatti` each return a `Scorecard` plus the tied winners.
 
 ### Types
 
