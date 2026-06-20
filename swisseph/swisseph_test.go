@@ -267,6 +267,32 @@ func TestCalcHouses_WholeSign(t *testing.T) {
 	}
 }
 
+// ---------------------------------------------------------------------------
+// FixStar
+// ---------------------------------------------------------------------------
+
+// TestFixStar_Regulus verifies the fixed-star catalogue (sefstars.txt) resolves
+// traditional names and returns a sane ecliptic longitude. Regulus sits in late
+// Leo / very early Virgo near the J2000 epoch (~29-30° Leo), drifting ~1°/72yr
+// by precession, so a wide tolerance keeps the test epoch-robust.
+func TestFixStar_Regulus(t *testing.T) {
+	jd := swisseph.JulDay(2000, 1, 1, 12.0)
+
+	pos, err := swisseph.FixStar("Regulus", jd)
+	if err != nil {
+		t.Fatalf("FixStar(Regulus) error: %v", err)
+	}
+
+	sign, deg := swisseph.ZodiacSign(pos.Longitude)
+	t.Logf("Regulus at %.4f° (%s %.2f°)", pos.Longitude, sign, deg)
+
+	// J2000 longitude of Regulus is ~149.8° (Leo 29.8°). Allow a couple of
+	// degrees of slack for epoch/precession.
+	if math.Abs(pos.Longitude-149.8) > 2.0 {
+		t.Errorf("Regulus longitude = %.4f°, want ~149.8°", pos.Longitude)
+	}
+}
+
 // TestCalcHouses_ASCMatchesCusp1 checks the Ascendant matches Cusps[1],
 // which holds for every house system except (arguably) Whole Sign.
 // We test it for Placidus as the canonical case.

@@ -11,11 +11,16 @@ package swisseph
 */
 import "C"
 import (
+	"errors"
 	"fmt"
 	"math"
 	"sync"
 	"unsafe"
 )
+
+// ErrNoRiseSet indicates that a body does not rise or set at the given location
+// and time (e.g. polar day or night). Callers should fall back accordingly.
+var ErrNoRiseSet = errors.New("body does not rise or set at this location and time")
 
 // Planet identifiers for the traditional planets.
 const (
@@ -26,6 +31,9 @@ const (
 	Mars    = C.SE_MARS
 	Jupiter = C.SE_JUPITER
 	Saturn  = C.SE_SATURN
+
+	// MeanNode is the Moon's mean north node (the south node is 180° opposite).
+	MeanNode = C.SE_MEAN_NODE
 )
 
 // House system codes (passed as a single character).
@@ -121,6 +129,90 @@ func CalcPlanet(tjdUT float64, planet int) (PlanetPos, string, error) {
 		SpeedLat:      float64(xx[4]),
 		SpeedDistance: float64(xx[5]),
 	}, C.GoString(&serr[0]), nil
+}
+
+// FixStar calculates the position of a fixed star at the given Julian Day (UT).
+// The name is resolved by the Swiss Ephemeris against the sefstars.txt catalogue
+// in the ephemeris path (e.g. "Regulus", "Spica", "Algol"). The returned
+// PlanetPos carries the star's ecliptic longitude in Longitude.
+func FixStar(name string, tjdUT float64) (PlanetPos, error) {
+	// swe_fixstar2_ut writes the resolved (possibly longer) star name back into
+	// the same buffer, so it must be a full-size mutable buffer, not a tightly
+	// sized C string. SE_MAX_STNAME (256) is the documented maximum. Do NOT
+	// replace this with C.CString(name): that allocates only len(name)+1 bytes
+	// and the library's write-back would overflow it.
+	var star [C.SE_MAX_STNAME + 1]C.char
+	nb := []byte(name)
+	if len(nb) > C.SE_MAX_STNAME {
+		nb = nb[:C.SE_MAX_STNAME]
+	}
+	for i, b := range nb {
+		star[i] = C.char(b)
+	}
+
+	var xx [6]C.double
+	var serr [256]C.char
+
+	mu.Lock()
+	ret := C.swe_fixstar2_ut(
+		&star[0],
+		C.double(tjdUT),
+		C.SEFLG_SWIEPH|C.SEFLG_SPEED,
+		&xx[0],
+		&serr[0],
+	)
+	mu.Unlock()
+
+	if int(ret) < 0 {
+		return PlanetPos{}, fmt.Errorf("swe_fixstar2_ut(%s): %s", name, C.GoString(&serr[0]))
+	}
+
+	return PlanetPos{
+		Longitude:     float64(xx[0]),
+		Latitude:      float64(xx[1]),
+		Distance:      float64(xx[2]),
+		SpeedLon:      float64(xx[3]),
+		SpeedLat:      float64(xx[4]),
+		SpeedDistance: float64(xx[5]),
+	}, nil
+}
+
+// RiseTrans finds the first rising (rising=true) or setting (rising=false) of a
+// body strictly after tjdUT, for the geographic location (degrees; east and
+// north positive, altitude in metres). It returns the event time as a Julian
+// Day (UT). Both events use the disc-centre convention for symmetry. If the body
+// does not rise/set in the relevant window it returns ErrNoRiseSet.
+func RiseTrans(tjdUT float64, planet int, geoLat, geoLon, alt float64, rising bool) (float64, error) {
+	rsmi := C.int(C.SE_CALC_SET | C.SE_BIT_DISC_CENTER)
+	if rising {
+		rsmi = C.int(C.SE_CALC_RISE | C.SE_BIT_DISC_CENTER)
+	}
+	geopos := [3]C.double{C.double(geoLon), C.double(geoLat), C.double(alt)}
+
+	var tret C.double
+	var serr [256]C.char
+
+	mu.Lock()
+	ret := C.swe_rise_trans(
+		C.double(tjdUT),
+		C.int(planet),
+		nil, // starname (planets only)
+		C.SEFLG_SWIEPH,
+		rsmi,
+		&geopos[0],
+		0, 0, // atmospheric pressure and temperature (unused for disc centre)
+		&tret,
+		&serr[0],
+	)
+	mu.Unlock()
+
+	if int(ret) == -2 {
+		return 0, ErrNoRiseSet
+	}
+	if int(ret) < 0 {
+		return 0, fmt.Errorf("swe_rise_trans: %s", C.GoString(&serr[0]))
+	}
+	return float64(tret), nil
 }
 
 // HouseResult holds the result of a house calculation.
