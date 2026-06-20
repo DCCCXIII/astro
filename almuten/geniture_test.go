@@ -74,8 +74,8 @@ func TestHouseOfWholeSign(t *testing.T) {
 		{5, 1}, {35, 2}, {95, 4}, {100, 4}, {355, 12},
 	}
 	for _, c := range cases {
-		if got := houseOf(c.lon, cusps); got != c.want {
-			t.Errorf("houseOf(%.1f) = %d, want %d", c.lon, got, c.want)
+		if got := HouseOf(c.lon, cusps); got != c.want {
+			t.Errorf("HouseOf(%.1f) = %d, want %d", c.lon, got, c.want)
 		}
 	}
 }

@@ -84,6 +84,18 @@ func JulDay(year, month, day int, hour float64) float64 {
 	))
 }
 
+// RevJul converts a Julian Day (UT) back to a Gregorian calendar date and
+// time. hour is in decimal form (e.g. 14.5 means 2:30 PM). It is the exact
+// inverse of JulDay.
+func RevJul(jd float64) (year, month, day int, hour float64) {
+	var y, m, d C.int
+	var h C.double
+	mu.Lock()
+	C.swe_revjul(C.double(jd), C.SE_GREG_CAL, &y, &m, &d, &h)
+	mu.Unlock()
+	return int(y), int(m), int(d), float64(h)
+}
+
 // PlanetPos holds the result of a planetary position calculation.
 type PlanetPos struct {
 	Longitude     float64 // ecliptic longitude in degrees (0-360)

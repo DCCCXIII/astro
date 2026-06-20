@@ -89,3 +89,49 @@ func TestParseAlmutenMode(t *testing.T) {
 		})
 	}
 }
+
+func TestParseSearchTarget(t *testing.T) {
+	cases := []struct {
+		input      string
+		wantPlanet int
+		wantLon    float64
+		wantErr    bool
+	}{
+		{"", noSearch, 0, false},
+		{"mars:195", swisseph.Mars, 195, false},
+		{"mars:15aries", swisseph.Mars, 15, false},
+		{"Venus:0cancer", swisseph.Venus, 90, false},
+		{"MARS:195", swisseph.Mars, 195, false}, // case-insensitive planet
+		{"saturn:29.5pisces", swisseph.Saturn, 359.5, false},
+		{"pluto:10leo", noSearch, 0, true},     // unsupported planet
+		{"meannode:10leo", noSearch, 0, true},  // explicitly out of scope
+		{"mars", noSearch, 0, true},            // missing colon
+		{"mars:", noSearch, 0, true},           // empty longitude
+		{":195", noSearch, 0, true},            // empty planet
+		{"mars:400", noSearch, 0, true},        // raw degrees out of [0,360)
+		{"mars:-10", noSearch, 0, true},        // negative raw degrees
+		{"mars:15notasign", noSearch, 0, true}, // unparseable longitude
+		{"mars:30aries", noSearch, 0, true},    // sign degree out of [0,30)
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.input, func(t *testing.T) {
+			gotPlanet, gotLon, err := parseSearchTarget(tc.input)
+			if tc.wantErr {
+				if err == nil {
+					t.Errorf("expected error, got nil")
+				}
+				return
+			}
+			if err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+			if gotPlanet != tc.wantPlanet {
+				t.Errorf("planet = %v, want %v", gotPlanet, tc.wantPlanet)
+			}
+			if gotLon != tc.wantLon {
+				t.Errorf("longitude = %v, want %v", gotLon, tc.wantLon)
+			}
+		})
+	}
+}

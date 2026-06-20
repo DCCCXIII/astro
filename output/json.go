@@ -3,7 +3,21 @@ package output
 import (
 	"encoding/json"
 	"fmt"
+	"math"
+	"time"
 )
+
+type searchJSON struct {
+	Planet     string   `json:"planet"`
+	TargetLon  float64  `json:"target_longitude"`
+	TargetSign string   `json:"target_sign"`
+	TargetDeg  float64  `json:"target_sign_degree"`
+	Timestamp  string   `json:"timestamp"`
+	JulianDay  float64  `json:"julian_day"`
+	SpeedLon   *float64 `json:"speed,omitempty"`
+	Retrograde *bool    `json:"retrograde,omitempty"`
+	House      *int     `json:"house,omitempty"`
+}
 
 type planetJSON struct {
 	Name          string   `json:"name"`
@@ -37,6 +51,7 @@ type resultJSON struct {
 	Planets          []planetJSON  `json:"planets"`
 	Houses           housesJSON    `json:"houses"`
 	Almuten          []almutenJSON `json:"almuten,omitempty"`
+	Search           *searchJSON   `json:"search,omitempty"`
 	EphemerisWarning *string       `json:"ephemeris_warning,omitempty"`
 }
 
@@ -86,6 +101,28 @@ func PrintJSON(r Result, verbose bool) error {
 		}
 		out.Almuten = append(out.Almuten, entry)
 	}
+	if r.Search != nil {
+		s := r.Search
+		hh := int(s.Hour)
+		mm := int((s.Hour - float64(hh)) * 60)
+		ss := int(math.Round((s.Hour - float64(hh) - float64(mm)/60) * 3600))
+		ts := time.Date(s.Year, time.Month(s.Month), s.Day, hh, mm, ss, 0, time.UTC)
+		entry := searchJSON{
+			Planet:     s.Planet,
+			TargetLon:  s.TargetLon,
+			TargetSign: s.TargetSign,
+			TargetDeg:  s.TargetSignDeg,
+			Timestamp:  ts.Format(time.RFC3339),
+			JulianDay:  s.JulianDay,
+		}
+		if verbose {
+			entry.SpeedLon = &s.SpeedLon
+			entry.Retrograde = &s.Retrograde
+			entry.House = &s.House
+		}
+		out.Search = &entry
+	}
+
 	if verbose && r.EphemerisWarning != "" {
 		out.EphemerisWarning = &r.EphemerisWarning
 	}

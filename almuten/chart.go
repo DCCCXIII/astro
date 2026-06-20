@@ -91,7 +91,7 @@ func BuildChart(jd, lat, lon float64, hsys byte) (Chart, error) {
 	c.Houses = houses
 
 	// Diurnal when the Sun is above the horizon (houses 7–12).
-	c.IsDiurnal = houseOf(c.Positions[swisseph.Sun].Longitude, houses.Cusps) >= 7
+	c.IsDiurnal = HouseOf(c.Positions[swisseph.Sun].Longitude, houses.Cusps) >= 7
 
 	return c, nil
 }
@@ -156,9 +156,9 @@ func signDeg(lon float64) (sign int, deg float64) {
 	return s, l - float64(s)*30
 }
 
-// houseOf returns the quadrant house (1–12) containing the longitude, using the
+// HouseOf returns the quadrant house (1–12) containing the longitude, using the
 // plain containing house defined by the cusps (no orb).
-func houseOf(lon float64, cusps [13]float64) int {
+func HouseOf(lon float64, cusps [13]float64) int {
 	lon = norm360(lon)
 	for h := 1; h <= 12; h++ {
 		start := norm360(cusps[h])

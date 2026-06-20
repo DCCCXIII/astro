@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -13,12 +14,34 @@ import (
 	"github.com/dcccxiii/astro/swisseph"
 )
 
+// noSearch is the "no --search flag was given" sentinel for the planet
+// return of parseSearchTarget. 0 can't serve as the sentinel because it
+// collides with swisseph.Sun.
+const noSearch = -1
+
+var searchPlanets = map[string]int{
+	"sun":     swisseph.Sun,
+	"moon":    swisseph.Moon,
+	"mercury": swisseph.Mercury,
+	"venus":   swisseph.Venus,
+	"mars":    swisseph.Mars,
+	"jupiter": swisseph.Jupiter,
+	"saturn":  swisseph.Saturn,
+}
+
+var zodiacSigns = []string{
+	"aries", "taurus", "gemini", "cancer", "leo", "virgo",
+	"libra", "scorpio", "sagittarius", "capricorn", "aquarius", "pisces",
+}
+
+var signDegreeRe = regexp.MustCompile(`^(\d+(?:\.\d+)?)([a-zA-Z]+)$`)
+
 // Run is the CLI entry point. It parses args, sets up the ephemeris, and
 // delegates rendering to the output package.
 func Run(args []string) error {
 	fs := flag.NewFlagSet("astro", flag.ContinueOnError)
 	fs.Usage = func() {
-		fmt.Fprintf(fs.Output(), "Usage: astro [--house-system <system>] [--almuten <mode>] [--json] [--verbose] <datetime> <lat> <lon>\n")
+		fmt.Fprintf(fs.Output(), "Usage: astro [--house-system <system>] [--almuten <mode>] [--search <planet>:<longitude>] [--json] [--verbose] <datetime> <lat> <lon>\n")
 		fmt.Fprintf(fs.Output(), "  <datetime>  ISO 8601 date/time in UTC, e.g. 2024-03-20T12:00:00Z\n")
 		fmt.Fprintf(fs.Output(), "  <lat>       geographic latitude in decimal degrees (north = positive)\n")
 		fmt.Fprintf(fs.Output(), "  <lon>       geographic longitude in decimal degrees (east = positive)\n\n")
@@ -27,6 +50,7 @@ func Run(args []string) error {
 
 	houseSystemFlag := fs.String("house-system", "placidus", "House system: placidus, koch, whole-sign, regiomontanus, equal, campanus")
 	almutenFlag := fs.String("almuten", "", "Chart victor: geniture (Lilly's Lord of the Geniture), figuris (Ibn Ezra), bonatti (Bonatti's Almudebit), both (geniture+figuris), or all")
+	searchFlag := fs.String("search", "", "Find the last time a planet was at a given ecliptic longitude before <datetime>, e.g. mars:15aries or mars:195")
 	jsonFlag := fs.Bool("json", false, "Output results as JSON")
 	verboseFlag := fs.Bool("verbose", false, "Verbose output: include ecliptic latitude, distance, speed components, ARMC, and Vertex")
 
@@ -68,6 +92,11 @@ func Run(args []string) error {
 		return err
 	}
 
+	searchPlanet, searchLon, err := parseSearchTarget(*searchFlag)
+	if err != nil {
+		return err
+	}
+
 	exe, err := os.Executable()
 	if err != nil {
 		return fmt.Errorf("could not resolve executable path: %w", err)
@@ -96,6 +125,13 @@ func Run(args []string) error {
 		}
 	}
 
+	if searchPlanet != noSearch {
+		r.Search, err = output.BuildSearch(jd, searchPlanet, searchLon, lat, lon, hsys)
+		if err != nil {
+			return err
+		}
+	}
+
 	if *jsonFlag {
 		return output.PrintJSON(r, *verboseFlag)
 	}
@@ -113,6 +149,60 @@ func parseAlmutenMode(mode string) (string, error) {
 	default:
 		return "", fmt.Errorf("unknown almuten mode %q: valid values are geniture, figuris, bonatti, both, all", mode)
 	}
+}
+
+// parseSearchTarget validates the --search flag value "<planet>:<longitude>".
+// An empty value means no search was requested, signalled by returning
+// noSearch for planet. longitude may be given as raw ecliptic degrees in
+// [0, 360) (e.g. "195") or as sign+degree (e.g. "15aries").
+func parseSearchTarget(spec string) (planet int, longitude float64, err error) {
+	if spec == "" {
+		return noSearch, 0, nil
+	}
+
+	parts := strings.SplitN(spec, ":", 2)
+	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+		return noSearch, 0, fmt.Errorf("invalid --search value %q: expected <planet>:<longitude>, e.g. mars:15aries or mars:195", spec)
+	}
+
+	p, ok := searchPlanets[strings.ToLower(parts[0])]
+	if !ok {
+		return noSearch, 0, fmt.Errorf("unknown --search planet %q: valid values are sun, moon, mercury, venus, mars, jupiter, saturn", parts[0])
+	}
+
+	lon, err := parseSearchLongitude(parts[1])
+	if err != nil {
+		return noSearch, 0, fmt.Errorf("invalid --search longitude %q: %w", parts[1], err)
+	}
+
+	return p, lon, nil
+}
+
+// parseSearchLongitude parses either raw ecliptic degrees in [0, 360) (e.g.
+// "195") or sign+degree notation (e.g. "15aries", degrees in [0, 30)).
+func parseSearchLongitude(s string) (float64, error) {
+	if v, err := strconv.ParseFloat(s, 64); err == nil {
+		if v < 0 || v >= 360 {
+			return 0, fmt.Errorf("raw degrees must be in [0, 360), got %v", v)
+		}
+		return v, nil
+	}
+
+	m := signDegreeRe.FindStringSubmatch(s)
+	if m == nil {
+		return 0, fmt.Errorf("expected raw degrees (e.g. 195) or <degrees><sign> (e.g. 15aries)")
+	}
+	deg, err := strconv.ParseFloat(m[1], 64)
+	if err != nil || deg < 0 || deg >= 30 {
+		return 0, fmt.Errorf("sign degree must be in [0, 30), got %s", m[1])
+	}
+	signName := strings.ToLower(m[2])
+	for i, name := range zodiacSigns {
+		if name == signName {
+			return float64(i)*30 + deg, nil
+		}
+	}
+	return 0, fmt.Errorf("unknown zodiac sign %q", m[2])
 }
 
 func parseHouseSystem(name string) (code byte, displayName string, err error) {

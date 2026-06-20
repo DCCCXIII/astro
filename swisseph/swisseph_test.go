@@ -101,6 +101,57 @@ func TestJulDay_KnownEpochs(t *testing.T) {
 	}
 }
 
+func TestRevJul_KnownEpochs(t *testing.T) {
+	const epsilon = 1e-5 // well under a second of time
+
+	cases := []struct {
+		name                         string
+		jd                           float64
+		wantYear, wantMonth, wantDay int
+		wantHour                     float64
+	}{
+		{"J2000.0", 2451545.0, 2000, 1, 1, 12.0},
+		{"Unix epoch", 2440587.5, 1970, 1, 1, 0.0},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			y, m, d, h := swisseph.RevJul(tc.jd)
+			if y != tc.wantYear || m != tc.wantMonth || d != tc.wantDay {
+				t.Errorf("RevJul(%.4f) = %d-%02d-%02d, want %d-%02d-%02d", tc.jd, y, m, d, tc.wantYear, tc.wantMonth, tc.wantDay)
+			}
+			if math.Abs(h-tc.wantHour) > epsilon {
+				t.Errorf("RevJul(%.4f) hour = %.6f, want %.6f", tc.jd, h, tc.wantHour)
+			}
+		})
+	}
+}
+
+func TestRevJul_InvertsJulDay(t *testing.T) {
+	cases := []struct {
+		year, month, day int
+		hour             float64
+	}{
+		{2000, 1, 1, 12.0},
+		{1970, 1, 1, 0.0},
+		{1990, 5, 15, 8.5},
+		{2024, 12, 31, 23.75},
+	}
+
+	for _, tc := range cases {
+		jd := swisseph.JulDay(tc.year, tc.month, tc.day, tc.hour)
+		y, m, d, h := swisseph.RevJul(jd)
+		if y != tc.year || m != tc.month || d != tc.day {
+			t.Errorf("RevJul(JulDay(%d-%02d-%02d %.2f)) = %d-%02d-%02d, want %d-%02d-%02d",
+				tc.year, tc.month, tc.day, tc.hour, y, m, d, tc.year, tc.month, tc.day)
+		}
+		if math.Abs(h-tc.hour) > 1e-5 {
+			t.Errorf("RevJul(JulDay(%d-%02d-%02d %.2f)) hour = %.6f, want %.6f",
+				tc.year, tc.month, tc.day, tc.hour, h, tc.hour)
+		}
+	}
+}
+
 // ---------------------------------------------------------------------------
 // PlanetName
 // ---------------------------------------------------------------------------

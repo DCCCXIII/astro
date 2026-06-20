@@ -119,7 +119,7 @@ func fullMoonLongitude(jd, lat, lon float64) (float64, string, error) {
 		return 0, "", err
 	}
 	// The luminary in houses 7–12 is above the horizon.
-	if houseOf(sun.Longitude, houses.Cusps) >= 7 {
+	if HouseOf(sun.Longitude, houses.Cusps) >= 7 {
 		return norm360(sun.Longitude), "full", nil
 	}
 	return norm360(moon.Longitude), "full", nil

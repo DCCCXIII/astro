@@ -55,6 +55,25 @@ type Result struct {
 	Cusps            []CuspEntry    // one entry per house, 1-12
 	EphemerisWarning string         // non-empty when the library fell back to Moshier
 	Almuten          []AlmutenEntry // chart-victor results, one per algorithm requested
+	Search           *SearchResult  // backward longitude search result; nil unless --search was passed
+}
+
+// SearchResult holds the outcome of a --search backward longitude lookup:
+// the most recent moment a planet sat at a target ecliptic longitude before
+// the reference date.
+type SearchResult struct {
+	Planet        string
+	TargetLon     float64
+	TargetSign    string
+	TargetSignDeg float64
+	JulianDay     float64
+	Year          int
+	Month         int
+	Day           int
+	Hour          float64 // decimal UT
+	SpeedLon      float64 // degrees/day at the crossing; negative = retrograde
+	Retrograde    bool
+	House         int // 1-12, occupied by the planet at the crossing instant
 }
 
 // AlmutenScore is a single planet's net score in an almuten scorecard.
@@ -123,6 +142,44 @@ func almutenEntry(method string, score almuten.Scorecard, winners []int) Almuten
 	}
 
 	return AlmutenEntry{Method: method, Winners: names, Scoreboard: board}
+}
+
+// BuildSearch finds the most recent time before jd that planet was at
+// targetLon and returns a presentation-ready SearchResult. lat, lon, and hsys
+// are used only to report the house the planet occupied at the moment found
+// (the longitude search itself is location-independent).
+func BuildSearch(jd float64, planet int, targetLon, lat, lon float64, hsys byte) (*SearchResult, error) {
+	crossingJD, speedLon, retrograde, err := almuten.LastLongitudeDefault(jd, planet, targetLon)
+	if err != nil {
+		return nil, fmt.Errorf("searching for %s at %.4f°: %w", swisseph.PlanetName(planet), targetLon, err)
+	}
+
+	year, month, day, hour := swisseph.RevJul(crossingJD)
+
+	houses, err := swisseph.CalcHouses(crossingJD, lat, lon, hsys)
+	if err != nil {
+		return nil, fmt.Errorf("computing houses at crossing: %w", err)
+	}
+	pos, _, err := swisseph.CalcPlanet(crossingJD, planet)
+	if err != nil {
+		return nil, fmt.Errorf("recomputing %s position at crossing: %w", swisseph.PlanetName(planet), err)
+	}
+
+	sign, deg := swisseph.ZodiacSign(targetLon)
+	return &SearchResult{
+		Planet:        swisseph.PlanetName(planet),
+		TargetLon:     targetLon,
+		TargetSign:    sign,
+		TargetSignDeg: deg,
+		JulianDay:     crossingJD,
+		Year:          year,
+		Month:         month,
+		Day:           day,
+		Hour:          hour,
+		SpeedLon:      speedLon,
+		Retrograde:    retrograde,
+		House:         almuten.HouseOf(pos.Longitude, houses.Cusps),
+	}, nil
 }
 
 // Build computes a full chart result for the given Julian Day, planets, and
