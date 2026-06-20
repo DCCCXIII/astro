@@ -47,7 +47,7 @@ Requires Go 1.25+ and a C compiler (GCC or Clang). No external C library install
 ## CLI Usage
 
 ```bash
-astro [--house-system <system>] [--json] <datetime> <lat> <lon>
+astro [--house-system <system>] [--json] [--verbose] <datetime> <lat> <lon>
 ```
 
 - `<datetime>`: UTC time in ISO 8601 (e.g. `2024-03-20T12:00:00Z`)
@@ -55,6 +55,7 @@ astro [--house-system <system>] [--json] <datetime> <lat> <lon>
 - `<lon>`: Decimal degrees, east positive
 - `--house-system`: `placidus` (default), `koch`, `whole-sign`, `regiomontanus`, `equal`, `campanus`
 - `--json`: Output JSON instead of human-readable text
+- `--verbose`: Include ecliptic latitude, distance, speed components, ARMC, Vertex, and ephemeris source warning (if Moshier fallback is active)
 
 ## Package Overview
 
@@ -67,8 +68,8 @@ astro [--house-system <system>] [--json] <datetime> <lat> <lon>
 Three files with a clean separation of concerns:
 
 - **`result.go`** — `Build()` calls `swisseph.CalcPlanet` and `swisseph.CalcHouses`, assembles a `Result` struct. Neither renderer touches the C library.
-- **`text.go`** — `PrintText(r Result) error` writes human-readable output to stdout.
-- **`json.go`** — `PrintJSON(r Result) error` marshals to indented JSON and writes to stdout.
+- **`text.go`** — `PrintText(r Result, verbose bool) error` writes human-readable output to stdout.
+- **`json.go`** — `PrintJSON(r Result, verbose bool) error` marshals to indented JSON and writes to stdout.
 
 ### `swisseph`
 
@@ -83,7 +84,7 @@ Low-level cgo bindings. All C calls are mutex-protected for thread safety. Calle
 | `SetEphePath(path)` | Set path to `ephe/` directory |
 | `Close()` | Free C library resources |
 | `JulDay(year, month, day, hour)` | Calendar date → Julian Day |
-| `CalcPlanet(tjdUT, planet)` | Planet position at Julian Day |
+| `CalcPlanet(tjdUT, planet)` | Planet position at Julian Day; second return value is a warning string (non-empty when Moshier fallback is active) |
 | `CalcHouses(tjdUT, lat, lon, hsys)` | House cusps for location/time |
 | `ZodiacSign(longitude)` | Ecliptic longitude → sign name + degree (normalises to [0, 360) automatically) |
 
@@ -96,8 +97,8 @@ Low-level cgo bindings. All C calls are mutex-protected for thread safety. Calle
 | Function | Description |
 |---|---|
 | `Build(jd, planets, lat, lon, hsys, hsysName)` | Compute full chart; returns `Result` or error |
-| `PrintText(r Result) error` | Render human-readable output to stdout |
-| `PrintJSON(r Result) error` | Render JSON output to stdout |
+| `PrintText(r Result, verbose bool) error` | Render human-readable output to stdout |
+| `PrintJSON(r Result, verbose bool) error` | Render JSON output to stdout |
 
 ## Key Data Structures
 
@@ -108,8 +109,8 @@ Low-level cgo bindings. All C calls are mutex-protected for thread safety. Calle
 
 ### `output` package
 
-- `Result` — JulianDay, HouseName, Lat, Lon, Planets, Ascendant, MC, Cusps
-- `PlanetEntry` — Name, Longitude, Sign, SignDegree, Speed
+- `Result` — JulianDay, HouseName, Lat, Lon, Planets, Ascendant, MC, ARMC, Vertex, Cusps, EphemerisWarning
+- `PlanetEntry` — Name, Longitude, Sign, SignDegree, Speed, Latitude, Distance, SpeedLat, SpeedDistance
 - `AngleEntry` — Longitude, Sign, SignDegree
 - `CuspEntry` — House, Longitude, Sign, SignDegree
 
@@ -124,9 +125,12 @@ Low-level cgo bindings. All C calls are mutex-protected for thread safety. Calle
     "ascendant": { "longitude": 0.0, "sign": "Aries", "sign_degree": 0.0 },
     "mc": { "longitude": 0.0, "sign": "Aries", "sign_degree": 0.0 },
     "cusps": [{ "house": 1, "longitude": 0.0, "sign": "Aries", "sign_degree": 0.0 }]
-  }
+  },
+  "ephemeris_warning": "SwissEph file '...' not found; using Moshier eph."
 }
 ```
+
+`ephemeris_warning` is only present under `--verbose` and only when the Swiss Ephemeris `.se1` files were not found (Moshier fallback is active). It is omitted entirely from normal output.
 
 ## Ephemeris Data
 

@@ -26,7 +26,7 @@ The Swiss Ephemeris C sources are bundled in the `swisseph/` directory and compi
 ## Running
 
 ```
-astro [--house-system <system>] [--json] <datetime> <lat> <lon>
+astro [--house-system <system>] [--json] [--verbose] <datetime> <lat> <lon>
 ```
 
 **Arguments:**
@@ -43,6 +43,7 @@ astro [--house-system <system>] [--json] <datetime> <lat> <lon>
 |---|---|---|
 | `--house-system` | `placidus` | House system: `placidus`, `koch`, `whole-sign`, `regiomontanus`, `equal`, `campanus` |
 | `--json` | — | Output results as JSON instead of human-readable text |
+| `--verbose` | — | Include ecliptic latitude, distance, speed components, ARMC, Vertex, and ephemeris source warning (if Moshier fallback is active) |
 
 The binary looks for ephemeris data files (`.se1`) in an `ephe/` directory next to the executable. These files are included in the repository and provide high-precision planetary data.
 
@@ -54,6 +55,12 @@ The binary looks for ephemeris data files (`.se1`) in an `ephe/` directory next 
 
 # JSON output
 ./astro --json 2024-03-20T12:00:00Z 40.7128 -74.0060
+
+# Verbose output (adds latitude, distance, speed components, ARMC, Vertex)
+./astro --verbose 2024-03-20T12:00:00Z 40.7128 -74.0060
+
+# Verbose JSON
+./astro --json --verbose 2024-03-20T12:00:00Z 40.7128 -74.0060
 
 # Different house system
 ./astro --house-system koch 2024-03-20T12:00:00Z 40.7128 -74.0060
@@ -115,7 +122,7 @@ The `swisseph` package exposes the following:
 | `SetEphePath(path string)` | Set the path to `.se1` ephemeris data files |
 | `Close()` | Free all library resources (call via `defer`) |
 | `JulDay(year, month, day int, hour float64) float64` | Convert a calendar date (UTC) to a Julian Day number |
-| `CalcPlanet(tjdUT float64, planet int) (PlanetPos, error)` | Calculate a planet's position at a given time |
+| `CalcPlanet(tjdUT float64, planet int) (PlanetPos, string, error)` | Calculate a planet's position at a given time; the string is a warning when Moshier fallback is active (empty otherwise) |
 | `CalcHouses(tjdUT float64, geoLat, geoLon float64, hsys byte) (HouseResult, error)` | Calculate house cusps and angles for a time and location |
 | `PlanetName(planet int) string` | Get the human-readable name for a planet ID |
 | `ZodiacSign(longitude float64) (string, float64)` | Convert ecliptic longitude to zodiac sign and degree |
@@ -154,7 +161,7 @@ func main() {
 
     jd := swisseph.JulDay(2024, 3, 20, 12.0)
 
-    pos, _ := swisseph.CalcPlanet(jd, swisseph.Sun)
+    pos, _, _ := swisseph.CalcPlanet(jd, swisseph.Sun)
     sign, deg := swisseph.ZodiacSign(pos.Longitude)
     fmt.Printf("Sun: %s %.2f°\n", sign, deg)
 

@@ -88,7 +88,14 @@ type PlanetPos struct {
 
 // CalcPlanet calculates the position of a planet at the given Julian Day (UT).
 // Use the planet constants (Sun, Moon, Mercury, etc.) for the planet argument.
-func CalcPlanet(tjdUT float64, planet int) (PlanetPos, error) {
+//
+// The second return value is a warning string from the C library. It is empty
+// when the Swiss Ephemeris .se1 files were used successfully. A non-empty value
+// means the library could not open the ephemeris files and fell back to the
+// built-in Moshier approximation for the entire session — it is not specific to
+// the planet being calculated. Callers should surface it at most once rather
+// than once per planet.
+func CalcPlanet(tjdUT float64, planet int) (PlanetPos, string, error) {
 	var xx [6]C.double
 	var serr [256]C.char
 
@@ -103,7 +110,7 @@ func CalcPlanet(tjdUT float64, planet int) (PlanetPos, error) {
 	mu.Unlock()
 
 	if int(ret) < 0 {
-		return PlanetPos{}, fmt.Errorf("swe_calc_ut: %s", C.GoString(&serr[0]))
+		return PlanetPos{}, "", fmt.Errorf("swe_calc_ut: %s", C.GoString(&serr[0]))
 	}
 
 	return PlanetPos{
@@ -113,7 +120,7 @@ func CalcPlanet(tjdUT float64, planet int) (PlanetPos, error) {
 		SpeedLon:      float64(xx[3]),
 		SpeedLat:      float64(xx[4]),
 		SpeedDistance: float64(xx[5]),
-	}, nil
+	}, C.GoString(&serr[0]), nil
 }
 
 // HouseResult holds the result of a house calculation.
