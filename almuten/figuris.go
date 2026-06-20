@@ -28,15 +28,12 @@ var firstStationElongation = map[int]float64{
 // returns the full scorecard and every planet tied for the highest total.
 // The chart's Figuris-specific inputs (Part of Fortune, prenatal syzygy, day and
 // hour rulers) are computed here, so a plain BuildChart result suffices.
-func AlmutenFiguris(c Chart, opts Options) (Scorecard, []int, error) {
+func AlmutenFiguris(c Chart) (Scorecard, []int, error) {
 	if err := c.prepareFiguris(); err != nil {
 		return nil, nil, err
 	}
 
-	score := make(Scorecard, len(Planets))
-	for _, p := range Planets {
-		score[p] = 0
-	}
+	score := newScorecard()
 
 	// --- essential scoring over the five vital places ---
 	places := []float64{

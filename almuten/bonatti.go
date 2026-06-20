@@ -14,18 +14,13 @@ import (
 //     the domicile lord
 //
 // Unlike Figuris, Bonatti's method has no accidental house, temporal, or
-// synodic component. opts is unused: Bonatti's method has no documented
-// variant toggles; the parameter exists for signature parity with
-// LordOfGeniture and AlmutenFiguris.
-func AlmutenBonatti(c Chart, opts Options) (Scorecard, []int, error) {
+// synodic component.
+func AlmutenBonatti(c Chart) (Scorecard, []int, error) {
 	if err := c.computeVitalPoints(); err != nil {
 		return nil, nil, err
 	}
 
-	score := make(Scorecard, len(Planets))
-	for _, p := range Planets {
-		score[p] = 0
-	}
+	score := newScorecard()
 	c.scoreBonatti(score)
 
 	return score, winners(score), nil

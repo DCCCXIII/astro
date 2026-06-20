@@ -131,8 +131,8 @@ Low-level cgo bindings. All C calls are mutex-protected for thread safety. Calle
 |---|---|
 | `BuildChart(jd, lat, lon, hsys) (Chart, error)` | Gather positions, node, houses, sect once |
 | `LordOfGeniture(c, opts) (Scorecard, []int)` | Lilly's scorecard + tied winners |
-| `AlmutenFiguris(c, opts) (Scorecard, []int, error)` | Ibn Ezra's scorecard + tied winners |
-| `AlmutenBonatti(c, opts) (Scorecard, []int, error)` | Bonatti's Almudebit scorecard + tied winners |
+| `AlmutenFiguris(c) (Scorecard, []int, error)` | Ibn Ezra's scorecard + tied winners |
+| `AlmutenBonatti(c) (Scorecard, []int, error)` | Bonatti's Almudebit scorecard + tied winners |
 | `PrenatalSyzygy(jd, lat, lon) (lon, kind, error)` | Most recent new/full moon before `jd` |
 | `DefaultOptions()` | Recommended variant defaults |
 

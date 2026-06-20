@@ -22,6 +22,11 @@ var Planets = []int{
 // Scorecard maps a planet ID (swisseph constant) to its integer score.
 type Scorecard map[int]int
 
+// newScorecard returns an empty Scorecard sized for all seven Planets.
+func newScorecard() Scorecard {
+	return make(Scorecard, len(Planets))
+}
+
 // Chart gathers every input the scoring algorithms need, computed once.
 // PartFortune, Syzygy, and SyzygyType are populated by computeVitalPoints,
 // shared by AlmutenFiguris and AlmutenBonatti. DayRuler and HourRuler
@@ -47,7 +52,7 @@ type Options struct {
 	FreeOfSunBonus              int     // points when a planet is free of the Sun (default 5)
 	PeregrineSuppressesTermFace bool    // treat a planet lacking major dignity as peregrine, suppress term/face (default true)
 	FixedStarOrb                float64 // conjunction orb for Regulus/Spica/Algol in degrees (default 5)
-	LillyWater                  bool    // use Lilly's Mars/Mars water triplicity (geniture only; AlmutenFiguris ignores it)
+	LillyWater                  bool    // use Lilly's Mars/Mars water triplicity (used only by LordOfGeniture)
 }
 
 // DefaultOptions returns the recommended defaults for the Lord of the Geniture.

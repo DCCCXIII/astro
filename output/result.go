@@ -87,14 +87,14 @@ func BuildAlmuten(jd, lat, lon float64, hsys byte, mode string) ([]AlmutenEntry,
 		entries = append(entries, almutenEntry("Lord of the Geniture", score, winners))
 	}
 	if mode == "figuris" || mode == "both" || mode == "all" {
-		score, winners, err := almuten.AlmutenFiguris(chart, almuten.DefaultOptions())
+		score, winners, err := almuten.AlmutenFiguris(chart)
 		if err != nil {
 			return nil, fmt.Errorf("computing almuten figuris: %w", err)
 		}
 		entries = append(entries, almutenEntry("Almuten Figuris", score, winners))
 	}
 	if mode == "bonatti" || mode == "all" {
-		score, winners, err := almuten.AlmutenBonatti(chart, almuten.DefaultOptions())
+		score, winners, err := almuten.AlmutenBonatti(chart)
 		if err != nil {
 			return nil, fmt.Errorf("computing almuten bonatti: %w", err)
 		}

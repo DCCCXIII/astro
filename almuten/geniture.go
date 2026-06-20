@@ -33,7 +33,7 @@ var fixedStars = []struct {
 // accidental scorecard applied to each planet at its own position. It returns
 // the full scorecard and every planet tied for the highest net total.
 func LordOfGeniture(c Chart, opts Options) (Scorecard, []int) {
-	score := make(Scorecard, len(Planets))
+	score := newScorecard()
 	sunLon := c.Positions[swisseph.Sun].Longitude
 
 	for _, p := range Planets {

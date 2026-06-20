@@ -62,7 +62,7 @@ func TestAlmutenBonattiIntegration(t *testing.T) {
 		t.Fatalf("BuildChart: %v", err)
 	}
 
-	score, win, err := AlmutenBonatti(c, DefaultOptions())
+	score, win, err := AlmutenBonatti(c)
 	if err != nil {
 		t.Fatalf("AlmutenBonatti: %v", err)
 	}

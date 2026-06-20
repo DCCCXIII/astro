@@ -88,7 +88,7 @@ func TestAlmutenFigurisIntegration(t *testing.T) {
 		t.Fatalf("BuildChart: %v", err)
 	}
 
-	score, win, err := AlmutenFiguris(c, DefaultOptions())
+	score, win, err := AlmutenFiguris(c)
 	if err != nil {
 		t.Fatalf("AlmutenFiguris: %v", err)
 	}
@@ -112,7 +112,7 @@ func TestAlmutenFigurisIntegration(t *testing.T) {
 	}
 
 	// Determinism.
-	score2, _, _ := AlmutenFiguris(c, DefaultOptions())
+	score2, _, _ := AlmutenFiguris(c)
 	for _, p := range Planets {
 		if score[p] != score2[p] {
 			t.Errorf("non-deterministic score for %s: %d vs %d", swisseph.PlanetName(p), score[p], score2[p])
