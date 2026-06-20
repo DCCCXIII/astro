@@ -57,7 +57,7 @@ This algorithm also uses a different rule for *which* house a planet counts
 as occupying: `adjustedHouse` (`almuten/figuris.go:97-104`) treats a planet
 within **5° before** the next cusp (in zodiacal order) as already belonging
 to that next house, rather than the plain containing-house test Lilly uses
-(`houseOf`, `almuten/chart.go:161-176`). The 5° pre-cusp orb is hardcoded —
+(`HouseOf`, `almuten/chart.go:161-176`). The 5° pre-cusp orb is hardcoded —
 see [implementation-notes.md](implementation-notes.md).
 
 ## Temporal rulers

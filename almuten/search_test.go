@@ -62,6 +62,16 @@ func TestLastLongitude_RetrogradeFlag(t *testing.T) {
 	}
 }
 
+// TestLastLongitudeDefault_UnsupportedPlanet checks that a planet with no
+// entry in searchWindowDays (e.g. MeanNode, which the CLI never routes here)
+// fails loudly rather than silently searching a zero-day window.
+func TestLastLongitudeDefault_UnsupportedPlanet(t *testing.T) {
+	_, _, _, err := LastLongitudeDefault(swisseph.JulDay(2024, 6, 1, 0), swisseph.MeanNode, 0)
+	if err == nil {
+		t.Fatal("expected an error for a planet with no default search window, got nil")
+	}
+}
+
 // TestLastLongitude_NotFoundWithinWindow checks that a deliberately tiny
 // window for a slow-moving planet returns an error rather than a false hit.
 func TestLastLongitude_NotFoundWithinWindow(t *testing.T) {

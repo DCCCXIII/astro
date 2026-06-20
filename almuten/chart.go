@@ -145,6 +145,32 @@ func elongation(a, b float64) float64 {
 	return math.Abs(normalize180(a - b))
 }
 
+// bisectZeroCrossing bisects [lo, hi] to ~1-second-of-JD precision, locating
+// the instant where f crosses zero. f must be continuous and change sign
+// somewhere within [lo, hi]. Shared by syzygy.go's lunation search and
+// search.go's longitude search.
+func bisectZeroCrossing(lo, hi float64, f func(jd float64) (float64, error)) (float64, error) {
+	flo, err := f(lo)
+	if err != nil {
+		return 0, err
+	}
+
+	const tol = 1.0 / 86400.0 // one second in days
+	for hi-lo > tol {
+		mid := (lo + hi) / 2
+		fmid, err := f(mid)
+		if err != nil {
+			return 0, err
+		}
+		if (flo <= 0) == (fmid <= 0) {
+			lo, flo = mid, fmid
+		} else {
+			hi = mid
+		}
+	}
+	return (lo + hi) / 2, nil
+}
+
 // signDeg returns the sign index (0=Aries … 11=Pisces) and the degree within the
 // sign [0, 30) for an ecliptic longitude.
 func signDeg(lon float64) (sign int, deg float64) {

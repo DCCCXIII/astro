@@ -82,36 +82,18 @@ func LastLongitude(jd float64, planet int, targetLon, windowDays, stepDays float
 // LastLongitudeDefault calls LastLongitude using this package's recommended
 // search window and step size for planet.
 func LastLongitudeDefault(jd float64, planet int, targetLon float64) (crossingJD, speedLon float64, retrograde bool, err error) {
-	return LastLongitude(jd, planet, targetLon, searchWindowDays[planet], searchStepDays)
+	window, ok := searchWindowDays[planet]
+	if !ok {
+		return 0, 0, false, fmt.Errorf("no default search window for planet %s", swisseph.PlanetName(planet))
+	}
+	return LastLongitude(jd, planet, targetLon, window, searchStepDays)
 }
 
 // refineLongitudeCrossing bisects the bracket [lo, hi] to ~1-second precision,
-// locating the instant planet's longitude equals targetLon. It mirrors
-// refineCrossing in syzygy.go but is generalized to any planet/target and is
-// agnostic to whether the planet is moving direct or retrograde across the
-// bracket.
+// locating the instant planet's longitude equals targetLon. It is agnostic to
+// whether the planet is moving direct or retrograde across the bracket.
 func refineLongitudeCrossing(lo, hi float64, planet int, targetLon float64) (float64, error) {
-	f := func(jd float64) (float64, error) {
+	return bisectZeroCrossing(lo, hi, func(jd float64) (float64, error) {
 		return longitudeOffset(jd, planet, targetLon)
-	}
-
-	flo, err := f(lo)
-	if err != nil {
-		return 0, err
-	}
-
-	const tol = 1.0 / 86400.0 // one second in days
-	for hi-lo > tol {
-		mid := (lo + hi) / 2
-		fmid, err := f(mid)
-		if err != nil {
-			return 0, err
-		}
-		if (flo <= 0) == (fmid <= 0) {
-			lo, flo = mid, fmid
-		} else {
-			hi = mid
-		}
-	}
-	return (lo + hi) / 2, nil
+	})
 }

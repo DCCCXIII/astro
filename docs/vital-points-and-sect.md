@@ -13,7 +13,7 @@ A chart is diurnal when the Sun is above the horizon (houses 7–12) at the
 moment in question, nocturnal otherwise:
 
 ```go
-c.IsDiurnal = houseOf(c.Positions[swisseph.Sun].Longitude, houses.Cusps) >= 7
+c.IsDiurnal = HouseOf(c.Positions[swisseph.Sun].Longitude, houses.Cusps) >= 7
 ```
 
 (`almuten/chart.go:94`)
@@ -79,7 +79,7 @@ at the birth location** (not the birth time):
 
 ```go
 // The luminary in houses 7–12 is above the horizon.
-if houseOf(sun.Longitude, houses.Cusps) >= 7 {
+if HouseOf(sun.Longitude, houses.Cusps) >= 7 {
     return norm360(sun.Longitude), "full", nil
 }
 return norm360(moon.Longitude), "full", nil
