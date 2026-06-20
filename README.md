@@ -7,6 +7,8 @@ Go bindings for the [Swiss Ephemeris](https://www.astro.com/swisseph/) C library
 - Planetary position calculations (ecliptic longitude, latitude, distance, and daily speeds) for the seven traditional planets: Sun, Moon, Mercury, Venus, Mars, Jupiter, and Saturn
 - House cusp calculations with support for multiple house systems (Placidus, Koch, Whole Sign, Regiomontanus, Equal, Campanus)
 - Ascendant, Midheaven (MC), ARMC, and Vertex angles
+- Traditional "chart victor" (almuten) calculations: Lilly's Lord of the Geniture (*Christian Astrology* p.115) and Ibn Ezra's Almuten Figuris
+- Fixed-star and rise/set helpers, and a pure-Go `dignities` package of essential-dignity tables (domicile, exaltation, triplicity, terms, faces)
 - Zodiac sign conversion utility
 - Thread-safe: all calls to the underlying C library are protected by a mutex
 
@@ -26,7 +28,7 @@ The Swiss Ephemeris C sources are bundled in the `swisseph/` directory and compi
 ## Running
 
 ```
-astro [--house-system <system>] [--json] [--verbose] <datetime> <lat> <lon>
+astro [--house-system <system>] [--almuten <mode>] [--json] [--verbose] <datetime> <lat> <lon>
 ```
 
 **Arguments:**
@@ -42,8 +44,9 @@ astro [--house-system <system>] [--json] [--verbose] <datetime> <lat> <lon>
 | Flag | Default | Description |
 |---|---|---|
 | `--house-system` | `placidus` | House system: `placidus`, `koch`, `whole-sign`, `regiomontanus`, `equal`, `campanus` |
+| `--almuten` | — | Chart victor: `geniture` (Lilly's Lord of the Geniture), `figuris` (Ibn Ezra's Almuten Figuris), or `both`. Omit for no almuten output |
 | `--json` | — | Output results as JSON instead of human-readable text |
-| `--verbose` | — | Include ecliptic latitude, distance, speed components, ARMC, Vertex, and ephemeris source warning (if Moshier fallback is active) |
+| `--verbose` | — | Include ecliptic latitude, distance, speed components, ARMC, Vertex, the almuten scoreboard, and ephemeris source warning (if Moshier fallback is active) |
 
 The binary looks for ephemeris data files (`.se1`) in an `ephe/` directory next to the executable. These files are included in the repository and provide high-precision planetary data.
 
@@ -64,6 +67,12 @@ The binary looks for ephemeris data files (`.se1`) in an `ephe/` directory next 
 
 # Different house system
 ./astro --house-system koch 2024-03-20T12:00:00Z 40.7128 -74.0060
+
+# Chart victor (almuten): victor only
+./astro --almuten geniture 2024-03-20T12:00:00Z 40.7128 -74.0060
+
+# Both algorithms with the full scoreboard
+./astro --almuten both --verbose 2024-03-20T12:00:00Z 40.7128 -74.0060
 ```
 
 ### Example output (human-readable)
@@ -90,6 +99,26 @@ House cusps:
   ...
 ```
 
+### Example output (almuten, with `--almuten both --verbose`)
+
+Without `--verbose`, only the `Victor:` line is shown per algorithm. Tied planets are all reported.
+
+```
+=== Almuten: Lord of the Geniture ===
+Victor: Jupiter
+  Jupiter     +21
+  Mars        +12
+  Venus       +11
+  ...
+
+=== Almuten: Almuten Figuris ===
+Victor: Mars
+  Mars        +27
+  Mercury     +26
+  Sun         +25
+  ...
+```
+
 ### Example output (JSON)
 
 ```json
@@ -111,9 +140,23 @@ House cusps:
 }
 ```
 
+With `--almuten`, an `almuten` array is added (one entry per algorithm; `scoreboard` only under `--verbose`):
+
+```json
+{
+  "almuten": [
+    {
+      "method": "Lord of the Geniture",
+      "winners": ["Jupiter"],
+      "scoreboard": [{"planet": "Jupiter", "score": 21}, ...]
+    }
+  ]
+}
+```
+
 ## Package API
 
-The `swisseph` package exposes the following:
+The `swisseph` package exposes the low-level bindings:
 
 ### Functions
 
@@ -124,14 +167,21 @@ The `swisseph` package exposes the following:
 | `JulDay(year, month, day int, hour float64) float64` | Convert a calendar date (UTC) to a Julian Day number |
 | `CalcPlanet(tjdUT float64, planet int) (PlanetPos, string, error)` | Calculate a planet's position at a given time; the string is a warning when Moshier fallback is active (empty otherwise) |
 | `CalcHouses(tjdUT float64, geoLat, geoLon float64, hsys byte) (HouseResult, error)` | Calculate house cusps and angles for a time and location |
+| `FixStar(name string, tjdUT float64) (PlanetPos, error)` | Position of a fixed star by catalogue name (resolved via `ephe/sefstars.txt`) |
+| `RiseTrans(tjdUT float64, planet int, geoLat, geoLon, alt float64, rising bool) (float64, error)` | Next rise/set time as a Julian Day; returns `ErrNoRiseSet` at polar latitudes |
 | `PlanetName(planet int) string` | Get the human-readable name for a planet ID |
 | `ZodiacSign(longitude float64) (string, float64)` | Convert ecliptic longitude to zodiac sign and degree |
 
 ### Constants
 
-**Planets:** `Sun`, `Moon`, `Mercury`, `Venus`, `Mars`, `Jupiter`, `Saturn`
+**Planets:** `Sun`, `Moon`, `Mercury`, `Venus`, `Mars`, `Jupiter`, `Saturn`, `MeanNode`
 
 **House systems:** `HousePlacidus`, `HouseKoch`, `HouseWholeSign`, `HouseRegiomontanus`, `HouseEqual`, `HouseCampanus`
+
+### Higher-level packages
+
+- **`dignities`** — pure-Go essential-dignity tables and lookups (`DomicileRuler`, `ExaltationRuler`, `ActiveTriplicityRuler`, `TermRuler`, `FaceRuler`, …). No cgo.
+- **`almuten`** — chart-victor algorithms: `BuildChart` assembles a `Chart` once, then `LordOfGeniture` and `AlmutenFiguris` return a `Scorecard` plus the tied winners.
 
 ### Types
 
