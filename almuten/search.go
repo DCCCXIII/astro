@@ -7,7 +7,7 @@ import (
 	"github.com/dcccxiii/astro/swisseph"
 )
 
-// searchWindowDays bounds how far back LastLongitudeDefault searches before
+// searchWindowDays bounds how far FindLongitudeDefault searches before
 // giving up, keyed by swisseph planet ID. Sized generously against each
 // planet's synodic/orbital period so a target longitude is guaranteed to
 // recur within the window even accounting for retrograde loops.
@@ -21,10 +21,10 @@ var searchWindowDays = map[int]float64{
 	swisseph.Saturn:  11500,
 }
 
-// searchStepDays is the coarse backward-scan step. It is conservative
-// relative to PrenatalSyzygy's proven 0.5-day step, since non-luminary
-// planets can have faster instantaneous retrograde speeds than the Moon's
-// elongation rate.
+// searchStepDays is the coarse scan step, used in either direction. It is
+// conservative relative to PrenatalSyzygy's proven 0.5-day step, since
+// non-luminary planets can have faster instantaneous retrograde speeds than
+// the Moon's elongation rate.
 const searchStepDays = 0.25
 
 // longitudeOffset returns planet's longitude minus targetLon, reduced to
@@ -47,8 +47,9 @@ const (
 	Forward
 )
 
-// String returns "before" for Backward and "after" for Forward, used to
-// phrase the not-found error message.
+// String returns "before" for Backward and "after" for Forward, for use in
+// the not-found error message's prose. This is not the CLI's "forward"/
+// "backward" vocabulary — see SearchResult.Direction for that.
 func (d Direction) String() string {
 	if d == Forward {
 		return "after"

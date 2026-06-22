@@ -50,7 +50,7 @@ func Run(args []string) error {
 
 	houseSystemFlag := fs.String("house-system", "placidus", "House system: placidus, koch, whole-sign, regiomontanus, equal, campanus")
 	almutenFlag := fs.String("almuten", "", "Chart victor: geniture (Lilly's Lord of the Geniture), figuris (Ibn Ezra), bonatti (Bonatti's Almudebit), both (geniture+figuris), or all")
-	searchFlag := fs.String("search", "", "Find the last/next time a planet was/will be at a given ecliptic longitude before/after <datetime>: <planet>:<longitude>[:forward|backward] (default backward), e.g. mars:15aries, mars:195, or mars:15aries:forward")
+	searchFlag := fs.String("search", "", "Find when a planet was/will be at a given ecliptic longitude, relative to <datetime>: <planet>:<longitude>[:forward|backward] (default backward), e.g. mars:15aries, mars:195, or mars:15aries:forward")
 	jsonFlag := fs.Bool("json", false, "Output results as JSON")
 	verboseFlag := fs.Bool("verbose", false, "Verbose output: include ecliptic latitude, distance, speed components, ARMC, and Vertex")
 

@@ -188,69 +188,81 @@ func TestFindLongitude_BackwardForwardSymmetry(t *testing.T) {
 	}
 }
 
+// bruteForceCrossings independently fine-samples Mercury's longitude offset
+// to target, starting at ref and walking in dir over window days, returning
+// every sign change (excluding the antipodal wraparound) in scan order —
+// i.e. most recent first for Backward, soonest first for Forward.
+func bruteForceCrossings(ref, target, window, fineStep float64, dir Direction) ([]float64, error) {
+	step := fineStep
+	if dir == Backward {
+		step = -fineStep
+	}
+
+	var crossings []float64
+	prev, err := longitudeOffset(ref, swisseph.Mercury, target)
+	if err != nil {
+		return nil, err
+	}
+	tt := ref
+	for i := 0; float64(i)*fineStep < window; i++ {
+		tt += step
+		cur, err := longitudeOffset(tt, swisseph.Mercury, target)
+		if err != nil {
+			return nil, err
+		}
+		if (prev <= 0) != (cur <= 0) && math.Abs(cur-prev) < 180 {
+			crossings = append(crossings, tt-step/2)
+		}
+		prev = cur
+	}
+	return crossings, nil
+}
+
+// findMultipleCrossingsWindow scans candidate reference instants spread
+// across two years, in dir from each, until it finds one where target (the
+// longitude Mercury held at candidateRef-window in dir's opposite sense)
+// crosses at least twice within window days — i.e. a window that genuinely
+// exercises the multiple-crossing case rather than degenerating into a
+// single-crossing check. Mercury retrogrades roughly 3 times a year, so
+// scanning several candidates is necessary rather than assuming any single
+// calendar date contains a qualifying retrograde loop.
+func findMultipleCrossingsWindow(t *testing.T, window, fineStep float64, dir Direction) (ref, target float64, crossings []float64) {
+	t.Helper()
+	offset := -window
+	if dir == Forward {
+		offset = window
+	}
+	for month := 0; month < 24; month += 2 {
+		candidateRef := swisseph.JulDay(2024, 1, 1, 0) + float64(month)*30
+		basePos, _, err := swisseph.CalcPlanet(candidateRef+offset, swisseph.Mercury)
+		if err != nil {
+			t.Fatalf("CalcPlanet: %v", err)
+		}
+		candidateTarget := basePos.Longitude
+		c, err := bruteForceCrossings(candidateRef, candidateTarget, window, fineStep, dir)
+		if err != nil {
+			t.Fatalf("bruteForceCrossings: %v", err)
+		}
+		if len(c) >= 2 {
+			return candidateRef, candidateTarget, c
+		}
+	}
+	t.Fatal("no candidate window in a 2-year scan exhibited multiple crossings; test setup invalid")
+	return 0, 0, nil
+}
+
 // TestFindLongitude_Backward_MultipleCrossingsReturnsMostRecent validates
 // that the backward scan stops at the chronologically most recent
 // sign-change rather than an earlier one, for a target longitude Mercury is
 // known to cross more than once within the window (its retrograde loop
 // revisits longitudes it already passed through). The expected crossing is
 // determined independently by brute-force fine sampling, not a hardcoded
-// almanac date, and the test asserts at least two crossings actually exist
-// in the window so it genuinely exercises the multiple-crossing case rather
-// than degenerating into a single-crossing check.
+// almanac date.
 func TestFindLongitude_Backward_MultipleCrossingsReturnsMostRecent(t *testing.T) {
 	const window = 150.0 // > one Mercury synodic period (~116 days)
 	const fineStep = 0.1
 
-	// bruteForceCrossings independently fine-samples backward from ref over
-	// window days and returns every sign change of the offset to target
-	// (excluding the antipodal wraparound), most recent first.
-	bruteForceCrossings := func(ref, target float64) ([]float64, error) {
-		var crossings []float64
-		prev, err := longitudeOffset(ref, swisseph.Mercury, target)
-		if err != nil {
-			return nil, err
-		}
-		tt := ref
-		for i := 0; float64(i)*fineStep < window; i++ {
-			tt -= fineStep
-			cur, err := longitudeOffset(tt, swisseph.Mercury, target)
-			if err != nil {
-				return nil, err
-			}
-			if (prev <= 0) != (cur <= 0) && math.Abs(cur-prev) < 180 {
-				crossings = append(crossings, tt+fineStep/2)
-			}
-			prev = cur
-		}
-		return crossings, nil
-	}
-
-	// Mercury retrogrades roughly 3 times a year; rather than assume a
-	// specific calendar date contains a retrograde loop crossing a chosen
-	// target twice, scan several candidate windows spread across two years
-	// and use the first one that actually exhibits multiple crossings.
-	var ref, target float64
-	var crossings []float64
-	found := false
-	for month := 0; month < 24; month += 2 {
-		candidateRef := swisseph.JulDay(2024, 1, 1, 0) + float64(month)*30
-		basePos, _, err := swisseph.CalcPlanet(candidateRef-window, swisseph.Mercury)
-		if err != nil {
-			t.Fatalf("CalcPlanet: %v", err)
-		}
-		candidateTarget := basePos.Longitude
-		c, err := bruteForceCrossings(candidateRef, candidateTarget)
-		if err != nil {
-			t.Fatalf("bruteForceCrossings: %v", err)
-		}
-		if len(c) >= 2 {
-			ref, target, crossings, found = candidateRef, candidateTarget, c, true
-			break
-		}
-	}
-	if !found {
-		t.Fatal("no candidate window in a 2-year scan exhibited multiple crossings; test setup invalid")
-	}
+	ref, target, crossings := findMultipleCrossingsWindow(t, window, fineStep, Backward)
 	wantJD := crossings[0] // first found scanning backward = most recent
 
 	gotJD, _, _, err := FindLongitude(ref, swisseph.Mercury, target, window, searchStepDays, Backward)
@@ -270,56 +282,7 @@ func TestFindLongitude_Forward_MultipleCrossingsReturnsSoonest(t *testing.T) {
 	const window = 150.0 // > one Mercury synodic period (~116 days)
 	const fineStep = 0.1
 
-	// bruteForceCrossings independently fine-samples forward from ref over
-	// window days and returns every sign change of the offset to target
-	// (excluding the antipodal wraparound), soonest first.
-	bruteForceCrossings := func(ref, target float64) ([]float64, error) {
-		var crossings []float64
-		prev, err := longitudeOffset(ref, swisseph.Mercury, target)
-		if err != nil {
-			return nil, err
-		}
-		tt := ref
-		for i := 0; float64(i)*fineStep < window; i++ {
-			tt += fineStep
-			cur, err := longitudeOffset(tt, swisseph.Mercury, target)
-			if err != nil {
-				return nil, err
-			}
-			if (prev <= 0) != (cur <= 0) && math.Abs(cur-prev) < 180 {
-				crossings = append(crossings, tt-fineStep/2)
-			}
-			prev = cur
-		}
-		return crossings, nil
-	}
-
-	// Mercury retrogrades roughly 3 times a year; rather than assume a
-	// specific calendar date contains a retrograde loop crossing a chosen
-	// target twice, scan several candidate windows spread across two years
-	// and use the first one that actually exhibits multiple crossings.
-	var ref, target float64
-	var crossings []float64
-	found := false
-	for month := 0; month < 24; month += 2 {
-		candidateRef := swisseph.JulDay(2024, 1, 1, 0) + float64(month)*30
-		basePos, _, err := swisseph.CalcPlanet(candidateRef+window, swisseph.Mercury)
-		if err != nil {
-			t.Fatalf("CalcPlanet: %v", err)
-		}
-		candidateTarget := basePos.Longitude
-		c, err := bruteForceCrossings(candidateRef, candidateTarget)
-		if err != nil {
-			t.Fatalf("bruteForceCrossings: %v", err)
-		}
-		if len(c) >= 2 {
-			ref, target, crossings, found = candidateRef, candidateTarget, c, true
-			break
-		}
-	}
-	if !found {
-		t.Fatal("no candidate window in a 2-year scan exhibited multiple crossings; test setup invalid")
-	}
+	ref, target, crossings := findMultipleCrossingsWindow(t, window, fineStep, Forward)
 	wantJD := crossings[0] // first found scanning forward = soonest
 
 	gotJD, _, _, err := FindLongitude(ref, swisseph.Mercury, target, window, searchStepDays, Forward)
