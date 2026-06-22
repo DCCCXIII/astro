@@ -284,6 +284,14 @@ func ZodiacSign(longitude float64) (sign string, degrees float64) {
 	if longitude < 0 {
 		longitude += 360.0
 	}
+	// Round to 1e-4°, matching the precision callers display, before
+	// computing the sign index. Without this, float residue from upstream
+	// calculations (e.g. a bisection search converging to 179.999999...°)
+	// truncates into the wrong sign despite displaying as the boundary value.
+	longitude = math.Round(longitude*1e4) / 1e4
+	if longitude >= 360.0 {
+		longitude -= 360.0
+	}
 	idx := int(longitude / 30.0)
 	if idx >= 12 {
 		idx = 11

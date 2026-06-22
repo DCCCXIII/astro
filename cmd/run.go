@@ -107,6 +107,13 @@ func Run(args []string) error {
 	decimalHour := float64(t.Hour()) + float64(t.Minute())/60 + float64(t.Second())/3600
 	jd := swisseph.JulDay(t.Year(), int(t.Month()), t.Day(), decimalHour)
 
+	if searchPlanet != noSearch {
+		jd, err = output.FindSearchJD(jd, searchPlanet, searchLon, searchDir)
+		if err != nil {
+			return err
+		}
+	}
+
 	planets := []int{
 		swisseph.Sun, swisseph.Moon, swisseph.Mercury,
 		swisseph.Venus, swisseph.Mars, swisseph.Jupiter,
@@ -120,13 +127,6 @@ func Run(args []string) error {
 
 	if almutenMode != "" {
 		r.Almuten, err = output.BuildAlmuten(jd, lat, lon, hsys, almutenMode)
-		if err != nil {
-			return err
-		}
-	}
-
-	if searchPlanet != noSearch {
-		r.Search, err = output.BuildSearch(jd, searchPlanet, searchLon, lat, lon, hsys, searchDir)
 		if err != nil {
 			return err
 		}

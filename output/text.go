@@ -15,6 +15,7 @@ const planetNameWidth = 10
 // (ecliptic latitude, distance, latitude/distance speeds, ARMC, Vertex).
 func PrintText(r Result, verbose bool) error {
 	fmt.Printf("Julian Day: %.6f\n", r.JulianDay)
+	fmt.Printf("Date:       %s\n", r.Timestamp)
 	if verbose && r.EphemerisWarning != "" {
 		fmt.Printf("Ephemeris:  %s\n", r.EphemerisWarning)
 	}
@@ -60,23 +61,5 @@ func PrintText(r Result, verbose bool) error {
 		}
 	}
 
-	if r.Search != nil {
-		s := r.Search
-		fmt.Printf("\n=== Search: %s at %s %.2f° ===\n", s.Planet, s.TargetSign, s.TargetSignDeg)
-		label := "Last occurrence"
-		if s.Direction == "forward" {
-			label = "Next occurrence"
-		}
-		fmt.Printf("%s: %04d-%02d-%02d %02d:%02d UTC  (JD %.6f)\n",
-			label, s.Year, s.Month, s.Day, int(s.Hour), int((s.Hour-float64(int(s.Hour)))*60), s.JulianDay)
-		if verbose {
-			dir := "direct"
-			if s.Retrograde {
-				dir = "retrograde"
-			}
-			fmt.Printf("Speed: %+.4f°/day (%s)\n", s.SpeedLon, dir)
-			fmt.Printf("House: %d\n", s.House)
-		}
-	}
 	return nil
 }

@@ -63,9 +63,9 @@ astro [--house-system <system>] [--almuten <mode>] [--search <planet>:<longitude
 - `<lon>`: Decimal degrees, east positive
 - `--house-system`: `placidus` (default), `koch`, `whole-sign`, `regiomontanus`, `equal`, `campanus`
 - `--almuten`: `geniture` (Lilly's Lord of the Geniture), `figuris` (Ibn Ezra's Almuten Figuris), `bonatti` (Bonatti's Almudebit), `both` (geniture+figuris), or `all`. Omitted = no almuten section.
-- `--search`: `<planet>:<longitude>[:<direction>]` (e.g. `mars:15aries`, `mars:195`, or `mars:15aries:forward`) — finds the nearest time `<planet>` was/will be at that ecliptic longitude relative to `<datetime>`. `<direction>` is `backward` (default, most recent occurrence before `<datetime>`) or `forward` (next occurrence after `<datetime>`). Longitude accepts raw degrees `[0,360)` or sign+degree `[0,30)`. Omitted = no search section.
+- `--search`: `<planet>:<longitude>[:<direction>]` (e.g. `mars:15aries`, `mars:195`, or `mars:15aries:forward`) — finds the nearest time `<planet>` was/will be at that ecliptic longitude relative to `<datetime>`, then renders the **entire** report (planets, houses, almuten) for that found moment instead of `<datetime>`. `<direction>` is `backward` (default, most recent occurrence before `<datetime>`) or `forward` (next occurrence after `<datetime>`). Longitude accepts raw degrees `[0,360)` or sign+degree `[0,30)`. The `Date:` line under `Julian Day:` always shows which moment is being reported.
 - `--json`: Output JSON instead of human-readable text
-- `--verbose`: Include ecliptic latitude, distance, speed components, ARMC, Vertex, the almuten scoreboard table, search speed/retrograde/house, and ephemeris source warning (if Moshier fallback is active). Without `--verbose`, almuten output shows only the victor(s) and search output omits speed/house.
+- `--verbose`: Include ecliptic latitude, distance, speed components, ARMC, Vertex, the almuten scoreboard table, and ephemeris source warning (if Moshier fallback is active). Without `--verbose`, almuten output shows only the victor(s).
 
 ## Package Overview
 
@@ -119,7 +119,7 @@ Low-level cgo bindings. All C calls are mutex-protected for thread safety. Calle
 |---|---|
 | `Build(jd, planets, lat, lon, hsys, hsysName)` | Compute full chart; returns `Result` or error |
 | `BuildAlmuten(jd, lat, lon, hsys, mode)` | Compute `[]AlmutenEntry` for `mode` in `geniture`/`figuris`/`bonatti`/`both`/`all` |
-| `BuildSearch(jd, planet, targetLon, lat, lon, hsys, direction)` | Longitude search ("forward" or "backward"); returns `*SearchResult` |
+| `FindSearchJD(jd, planet, targetLon, direction)` | Resolves the Julian Day for `--search` ("forward" or "backward"); feed the result back into `Build()` |
 | `PrintText(r Result, verbose bool) error` | Render human-readable output to stdout |
 | `PrintJSON(r Result, verbose bool) error` | Render JSON output to stdout |
 
@@ -145,12 +145,11 @@ Low-level cgo bindings. All C calls are mutex-protected for thread safety. Calle
 
 ### `output` package
 
-- `Result` — JulianDay, HouseName, Lat, Lon, Planets, Ascendant, MC, ARMC, Vertex, Cusps, EphemerisWarning, Almuten, Search
+- `Result` — JulianDay, Timestamp, HouseName, Lat, Lon, Planets, Ascendant, MC, ARMC, Vertex, Cusps, EphemerisWarning, Almuten
 - `PlanetEntry` — Name, Longitude, Sign, SignDegree, Speed, Latitude, Distance, SpeedLat, SpeedDistance
 - `AngleEntry` — Longitude, Sign, SignDegree
 - `CuspEntry` — House, Longitude, Sign, SignDegree
 - `AlmutenEntry` — Method, Winners, Scoreboard (`[]AlmutenScore{Planet, Score}`, descending)
-- `SearchResult` — Planet, TargetLon, TargetSign, TargetSignDeg, Direction, JulianDay, Year/Month/Day/Hour, SpeedLon, Retrograde, House
 
 ### `almuten` package
 
@@ -163,6 +162,7 @@ Low-level cgo bindings. All C calls are mutex-protected for thread safety. Calle
 ```json
 {
   "julian_day": 2460389.0,
+  "timestamp": "2024-03-20T12:00:00Z",
   "planets": [{ "name": "Sun", "longitude": 0.0, "sign": "Aries", "sign_degree": 0.0, "speed": 1.0 }],
   "houses": {
     "system": "Placidus",
@@ -174,15 +174,11 @@ Low-level cgo bindings. All C calls are mutex-protected for thread safety. Calle
     { "method": "Lord of the Geniture", "winners": ["Mars"],
       "scoreboard": [{ "planet": "Mars", "score": 18 }] }
   ],
-  "search": {
-    "planet": "Mars", "target_longitude": 15.0, "target_sign": "Aries", "target_sign_degree": 15.0, "direction": "backward",
-    "timestamp": "2021-09-14T03:22:00Z", "julian_day": 2459471.6, "speed": 0.45, "retrograde": false, "house": 4
-  },
   "ephemeris_warning": "SwissEph file '...' not found; using Moshier eph."
 }
 ```
 
-`almuten` is present only when `--almuten` is passed (one entry per algorithm); its `scoreboard` is included only under `--verbose`. `search` is present only when `--search` is passed; its `speed`/`retrograde`/`house` fields are included only under `--verbose`. `ephemeris_warning` is only present under `--verbose` and only when the Swiss Ephemeris `.se1` files were not found (Moshier fallback is active). All are omitted entirely from normal output.
+`julian_day`/`timestamp` reflect `<datetime>` normally, or the found moment when `--search` is passed (see above). `almuten` is present only when `--almuten` is passed (one entry per algorithm); its `scoreboard` is included only under `--verbose`. `ephemeris_warning` is only present under `--verbose` and only when the Swiss Ephemeris `.se1` files were not found (Moshier fallback is active). Both are omitted entirely otherwise.
 
 ## Ephemeris Data
 
