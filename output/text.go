@@ -63,8 +63,12 @@ func PrintText(r Result, verbose bool) error {
 	if r.Search != nil {
 		s := r.Search
 		fmt.Printf("\n=== Search: %s at %s %.2f° ===\n", s.Planet, s.TargetSign, s.TargetSignDeg)
-		fmt.Printf("Last occurrence: %04d-%02d-%02d %02d:%02d UTC  (JD %.6f)\n",
-			s.Year, s.Month, s.Day, int(s.Hour), int((s.Hour-float64(int(s.Hour)))*60), s.JulianDay)
+		label := "Last occurrence"
+		if s.Direction == "forward" {
+			label = "Next occurrence"
+		}
+		fmt.Printf("%s: %04d-%02d-%02d %02d:%02d UTC  (JD %.6f)\n",
+			label, s.Year, s.Month, s.Day, int(s.Hour), int((s.Hour-float64(int(s.Hour)))*60), s.JulianDay)
 		if verbose {
 			dir := "direct"
 			if s.Retrograde {

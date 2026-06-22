@@ -55,17 +55,18 @@ type Result struct {
 	Cusps            []CuspEntry    // one entry per house, 1-12
 	EphemerisWarning string         // non-empty when the library fell back to Moshier
 	Almuten          []AlmutenEntry // chart-victor results, one per algorithm requested
-	Search           *SearchResult  // backward longitude search result; nil unless --search was passed
+	Search           *SearchResult  // longitude search result; nil unless --search was passed
 }
 
-// SearchResult holds the outcome of a --search backward longitude lookup:
-// the most recent moment a planet sat at a target ecliptic longitude before
-// the reference date.
+// SearchResult holds the outcome of a --search longitude lookup: the
+// nearest moment — before or after the reference date, per Direction — at
+// which a planet sat at a target ecliptic longitude.
 type SearchResult struct {
 	Planet        string
 	TargetLon     float64
 	TargetSign    string
 	TargetSignDeg float64
+	Direction     string // "forward" or "backward"
 	JulianDay     float64
 	Year          int
 	Month         int
@@ -144,12 +145,18 @@ func almutenEntry(method string, score almuten.Scorecard, winners []int) Almuten
 	return AlmutenEntry{Method: method, Winners: names, Scoreboard: board}
 }
 
-// BuildSearch finds the most recent time before jd that planet was at
-// targetLon and returns a presentation-ready SearchResult. lat, lon, and hsys
-// are used only to report the house the planet occupied at the moment found
-// (the longitude search itself is location-independent).
-func BuildSearch(jd float64, planet int, targetLon, lat, lon float64, hsys byte) (*SearchResult, error) {
-	crossingJD, speedLon, retrograde, err := almuten.LastLongitudeDefault(jd, planet, targetLon)
+// BuildSearch finds the nearest time, in the given direction ("forward" or
+// "backward") relative to jd, that planet was/will be at targetLon, and
+// returns a presentation-ready SearchResult. lat, lon, and hsys are used
+// only to report the house the planet occupied at the moment found (the
+// longitude search itself is location-independent).
+func BuildSearch(jd float64, planet int, targetLon, lat, lon float64, hsys byte, direction string) (*SearchResult, error) {
+	dir, err := searchDirectionFromString(direction)
+	if err != nil {
+		return nil, err
+	}
+
+	crossingJD, speedLon, retrograde, err := almuten.FindLongitudeDefault(jd, planet, targetLon, dir)
 	if err != nil {
 		return nil, fmt.Errorf("searching for %s at %.4f°: %w", swisseph.PlanetName(planet), targetLon, err)
 	}
@@ -171,6 +178,7 @@ func BuildSearch(jd float64, planet int, targetLon, lat, lon float64, hsys byte)
 		TargetLon:     targetLon,
 		TargetSign:    sign,
 		TargetSignDeg: deg,
+		Direction:     direction,
 		JulianDay:     crossingJD,
 		Year:          year,
 		Month:         month,
@@ -180,6 +188,19 @@ func BuildSearch(jd float64, planet int, targetLon, lat, lon float64, hsys byte)
 		Retrograde:    retrograde,
 		House:         almuten.HouseOf(pos.Longitude, houses.Cusps),
 	}, nil
+}
+
+// searchDirectionFromString validates and converts the --search direction
+// token into an almuten.Direction.
+func searchDirectionFromString(direction string) (almuten.Direction, error) {
+	switch direction {
+	case "backward":
+		return almuten.Backward, nil
+	case "forward":
+		return almuten.Forward, nil
+	default:
+		return 0, fmt.Errorf("unknown search direction %q: valid values are forward, backward", direction)
+	}
 }
 
 // Build computes a full chart result for the given Julian Day, planets, and

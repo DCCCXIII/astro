@@ -37,13 +37,34 @@ func longitudeOffset(jd float64, planet int, targetLon float64) (float64, error)
 	return normalize180(pos.Longitude - targetLon), nil
 }
 
-// LastLongitude finds the most recent moment at or before jd that planet
-// crossed targetLon (degrees, [0,360)). It returns that crossing's exact
-// Julian Day, the planet's signed daily speed in longitude at the crossing
-// (negative means retrograde), and whether it was retrograde. windowDays
-// bounds how far back to search; if no crossing is found within the window
-// it returns an error.
-func LastLongitude(jd float64, planet int, targetLon, windowDays, stepDays float64) (crossingJD, speedLon float64, retrograde bool, err error) {
+// Direction selects which way FindLongitude scans from the reference Julian
+// Day: Backward for the most recent prior occurrence, Forward for the next
+// occurrence.
+type Direction int
+
+const (
+	Backward Direction = iota
+	Forward
+)
+
+// String returns "before" for Backward and "after" for Forward, used to
+// phrase the not-found error message.
+func (d Direction) String() string {
+	if d == Forward {
+		return "after"
+	}
+	return "before"
+}
+
+// FindLongitude finds the nearest moment, in the given direction from jd,
+// at which planet crosses targetLon (degrees, [0,360)). Backward searches
+// for the most recent prior occurrence (at or before jd); Forward searches
+// for the next occurrence (at or after jd). It returns that crossing's
+// exact Julian Day, the planet's signed daily speed in longitude at the
+// crossing (negative means retrograde), and whether it was retrograde.
+// windowDays bounds how far to search; if no crossing is found within the
+// window it returns an error.
+func FindLongitude(jd float64, planet int, targetLon, windowDays, stepDays float64, dir Direction) (crossingJD, speedLon float64, retrograde bool, err error) {
 	prev, err := longitudeOffset(jd, planet, targetLon)
 	if err != nil {
 		return 0, 0, false, err
@@ -52,7 +73,14 @@ func LastLongitude(jd float64, planet int, targetLon, windowDays, stepDays float
 	maxIter := int(windowDays/stepDays) + 1
 	t := jd
 	for i := 0; i < maxIter; i++ {
-		t -= stepDays
+		var lo, hi float64
+		if dir == Forward {
+			t += stepDays
+			lo, hi = t-stepDays, t
+		} else {
+			t -= stepDays
+			lo, hi = t, t+stepDays
+		}
 		cur, err := longitudeOffset(t, planet, targetLon)
 		if err != nil {
 			return 0, 0, false, err
@@ -64,7 +92,7 @@ func LastLongitude(jd float64, planet int, targetLon, windowDays, stepDays float
 		// not a crossing of targetLon and would otherwise be a false
 		// positive on every such pass.
 		if (prev <= 0) != (cur <= 0) && math.Abs(cur-prev) < 180 {
-			inst, err := refineLongitudeCrossing(t, t+stepDays, planet, targetLon)
+			inst, err := refineLongitudeCrossing(lo, hi, planet, targetLon)
 			if err != nil {
 				return 0, 0, false, err
 			}
@@ -76,17 +104,17 @@ func LastLongitude(jd float64, planet int, targetLon, windowDays, stepDays float
 		}
 		prev = cur
 	}
-	return 0, 0, false, fmt.Errorf("no occurrence of %s at %.4f° found within %.0f days before jd %.4f", swisseph.PlanetName(planet), targetLon, windowDays, jd)
+	return 0, 0, false, fmt.Errorf("no occurrence of %s at %.4f° found within %.0f days %s jd %.4f", swisseph.PlanetName(planet), targetLon, windowDays, dir, jd)
 }
 
-// LastLongitudeDefault calls LastLongitude using this package's recommended
+// FindLongitudeDefault calls FindLongitude using this package's recommended
 // search window and step size for planet.
-func LastLongitudeDefault(jd float64, planet int, targetLon float64) (crossingJD, speedLon float64, retrograde bool, err error) {
+func FindLongitudeDefault(jd float64, planet int, targetLon float64, dir Direction) (crossingJD, speedLon float64, retrograde bool, err error) {
 	window, ok := searchWindowDays[planet]
 	if !ok {
 		return 0, 0, false, fmt.Errorf("no default search window for planet %s", swisseph.PlanetName(planet))
 	}
-	return LastLongitude(jd, planet, targetLon, window, searchStepDays)
+	return FindLongitude(jd, planet, targetLon, window, searchStepDays, dir)
 }
 
 // refineLongitudeCrossing bisects the bracket [lo, hi] to ~1-second precision,

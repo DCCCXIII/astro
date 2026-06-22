@@ -41,7 +41,7 @@ var signDegreeRe = regexp.MustCompile(`^(\d+(?:\.\d+)?)([a-zA-Z]+)$`)
 func Run(args []string) error {
 	fs := flag.NewFlagSet("astro", flag.ContinueOnError)
 	fs.Usage = func() {
-		fmt.Fprintf(fs.Output(), "Usage: astro [--house-system <system>] [--almuten <mode>] [--search <planet>:<longitude>] [--json] [--verbose] <datetime> <lat> <lon>\n")
+		fmt.Fprintf(fs.Output(), "Usage: astro [--house-system <system>] [--almuten <mode>] [--search <planet>:<longitude>[:forward|backward]] [--json] [--verbose] <datetime> <lat> <lon>\n")
 		fmt.Fprintf(fs.Output(), "  <datetime>  ISO 8601 date/time in UTC, e.g. 2024-03-20T12:00:00Z\n")
 		fmt.Fprintf(fs.Output(), "  <lat>       geographic latitude in decimal degrees (north = positive)\n")
 		fmt.Fprintf(fs.Output(), "  <lon>       geographic longitude in decimal degrees (east = positive)\n\n")
@@ -50,7 +50,7 @@ func Run(args []string) error {
 
 	houseSystemFlag := fs.String("house-system", "placidus", "House system: placidus, koch, whole-sign, regiomontanus, equal, campanus")
 	almutenFlag := fs.String("almuten", "", "Chart victor: geniture (Lilly's Lord of the Geniture), figuris (Ibn Ezra), bonatti (Bonatti's Almudebit), both (geniture+figuris), or all")
-	searchFlag := fs.String("search", "", "Find the last time a planet was at a given ecliptic longitude before <datetime>, e.g. mars:15aries or mars:195")
+	searchFlag := fs.String("search", "", "Find the last/next time a planet was/will be at a given ecliptic longitude before/after <datetime>: <planet>:<longitude>[:forward|backward] (default backward), e.g. mars:15aries, mars:195, or mars:15aries:forward")
 	jsonFlag := fs.Bool("json", false, "Output results as JSON")
 	verboseFlag := fs.Bool("verbose", false, "Verbose output: include ecliptic latitude, distance, speed components, ARMC, and Vertex")
 
@@ -92,7 +92,7 @@ func Run(args []string) error {
 		return err
 	}
 
-	searchPlanet, searchLon, err := parseSearchTarget(*searchFlag)
+	searchPlanet, searchLon, searchDir, err := parseSearchTarget(*searchFlag)
 	if err != nil {
 		return err
 	}
@@ -126,7 +126,7 @@ func Run(args []string) error {
 	}
 
 	if searchPlanet != noSearch {
-		r.Search, err = output.BuildSearch(jd, searchPlanet, searchLon, lat, lon, hsys)
+		r.Search, err = output.BuildSearch(jd, searchPlanet, searchLon, lat, lon, hsys, searchDir)
 		if err != nil {
 			return err
 		}
@@ -151,31 +151,56 @@ func parseAlmutenMode(mode string) (string, error) {
 	}
 }
 
-// parseSearchTarget validates the --search flag value "<planet>:<longitude>".
-// An empty value means no search was requested, signalled by returning
-// noSearch for planet. longitude may be given as raw ecliptic degrees in
-// [0, 360) (e.g. "195") or as sign+degree (e.g. "15aries").
-func parseSearchTarget(spec string) (planet int, longitude float64, err error) {
+// parseSearchTarget validates the --search flag value
+// "<planet>:<longitude>[:<direction>]". An empty value means no search was
+// requested, signalled by returning noSearch for planet. longitude may be
+// given as raw ecliptic degrees in [0, 360) (e.g. "195") or as sign+degree
+// (e.g. "15aries"). direction is "forward" or "backward" (case-insensitive);
+// omitting the third segment defaults to "backward".
+func parseSearchTarget(spec string) (planet int, longitude float64, direction string, err error) {
 	if spec == "" {
-		return noSearch, 0, nil
+		return noSearch, 0, "", nil
 	}
 
-	parts := strings.SplitN(spec, ":", 2)
-	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
-		return noSearch, 0, fmt.Errorf("invalid --search value %q: expected <planet>:<longitude>, e.g. mars:15aries or mars:195", spec)
+	parts := strings.SplitN(spec, ":", 3)
+	if len(parts) < 2 || parts[0] == "" || parts[1] == "" {
+		return noSearch, 0, "", fmt.Errorf("invalid --search value %q: expected <planet>:<longitude>[:<direction>], e.g. mars:15aries, mars:195, or mars:15aries:forward", spec)
 	}
 
 	p, ok := searchPlanets[strings.ToLower(parts[0])]
 	if !ok {
-		return noSearch, 0, fmt.Errorf("unknown --search planet %q: valid values are sun, moon, mercury, venus, mars, jupiter, saturn", parts[0])
+		return noSearch, 0, "", fmt.Errorf("unknown --search planet %q: valid values are sun, moon, mercury, venus, mars, jupiter, saturn", parts[0])
 	}
 
 	lon, err := parseSearchLongitude(parts[1])
 	if err != nil {
-		return noSearch, 0, fmt.Errorf("invalid --search longitude %q: %w", parts[1], err)
+		return noSearch, 0, "", fmt.Errorf("invalid --search longitude %q: %w", parts[1], err)
 	}
 
-	return p, lon, nil
+	dirSpec := ""
+	if len(parts) == 3 {
+		dirSpec = parts[2]
+	}
+	dir, err := parseSearchDirection(dirSpec)
+	if err != nil {
+		return noSearch, 0, "", err
+	}
+
+	return p, lon, dir, nil
+}
+
+// parseSearchDirection validates the optional third --search segment. An
+// empty value defaults to "backward", preserving the two-segment spec's
+// pre-existing documented behavior unchanged.
+func parseSearchDirection(direction string) (string, error) {
+	switch strings.ToLower(direction) {
+	case "":
+		return "backward", nil
+	case "forward", "backward":
+		return strings.ToLower(direction), nil
+	default:
+		return "", fmt.Errorf("unknown --search direction %q: valid values are forward, backward", direction)
+	}
 }
 
 // parseSearchLongitude parses either raw ecliptic degrees in [0, 360) (e.g.

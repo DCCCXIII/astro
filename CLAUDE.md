@@ -25,7 +25,7 @@ astro/
 │   ├── figuris.go       # AlmutenFiguris — Ibn Ezra's five-place scorecard
 │   ├── bonatti.go       # AlmutenBonatti — Bonatti's Almudebit (angles + vital points + dispositors)
 │   ├── syzygy.go        # Prenatal new/full-moon finder (pure Go on CalcPlanet)
-│   └── search.go        # LastLongitude — backward search for a planet's last occurrence at a longitude
+│   └── search.go        # FindLongitude — bidirectional search for a planet's next/last occurrence at a longitude
 ├── swisseph/
 │   ├── swisseph.go      # Go cgo bindings to Swiss Ephemeris
 │   ├── swisseph_test.go # Tests for the swisseph package
@@ -55,7 +55,7 @@ Requires Go 1.25+ and a C compiler (GCC or Clang). No external C library install
 ## CLI Usage
 
 ```bash
-astro [--house-system <system>] [--almuten <mode>] [--search <planet>:<longitude>] [--json] [--verbose] <datetime> <lat> <lon>
+astro [--house-system <system>] [--almuten <mode>] [--search <planet>:<longitude>[:<direction>]] [--json] [--verbose] <datetime> <lat> <lon>
 ```
 
 - `<datetime>`: UTC time in ISO 8601 (e.g. `2024-03-20T12:00:00Z`)
@@ -63,7 +63,7 @@ astro [--house-system <system>] [--almuten <mode>] [--search <planet>:<longitude
 - `<lon>`: Decimal degrees, east positive
 - `--house-system`: `placidus` (default), `koch`, `whole-sign`, `regiomontanus`, `equal`, `campanus`
 - `--almuten`: `geniture` (Lilly's Lord of the Geniture), `figuris` (Ibn Ezra's Almuten Figuris), `bonatti` (Bonatti's Almudebit), `both` (geniture+figuris), or `all`. Omitted = no almuten section.
-- `--search`: `<planet>:<longitude>` (e.g. `mars:15aries` or `mars:195`) — finds the last time `<planet>` was at that ecliptic longitude before `<datetime>`. Longitude accepts raw degrees `[0,360)` or sign+degree `[0,30)`. Omitted = no search section.
+- `--search`: `<planet>:<longitude>[:<direction>]` (e.g. `mars:15aries`, `mars:195`, or `mars:15aries:forward`) — finds the nearest time `<planet>` was/will be at that ecliptic longitude relative to `<datetime>`. `<direction>` is `backward` (default, most recent occurrence before `<datetime>`) or `forward` (next occurrence after `<datetime>`). Longitude accepts raw degrees `[0,360)` or sign+degree `[0,30)`. Omitted = no search section.
 - `--json`: Output JSON instead of human-readable text
 - `--verbose`: Include ecliptic latitude, distance, speed components, ARMC, Vertex, the almuten scoreboard table, search speed/retrograde/house, and ephemeris source warning (if Moshier fallback is active). Without `--verbose`, almuten output shows only the victor(s) and search output omits speed/house.
 
@@ -87,7 +87,7 @@ Pure-Go static tables (domicile/detriment, exaltation/fall, Dorothean triplicity
 
 ### `almuten`
 
-Orchestration. `BuildChart` gathers positions, lunar node, houses, and sect once into a `Chart`. `LordOfGeniture`, `AlmutenFiguris`, and `AlmutenBonatti` each return a `Scorecard` (`map[int]int`) plus the tied winners. Part of Fortune and prenatal syzygy are shared via `Chart.computeVitalPoints()`; Figuris additionally derives weekday/planetary-hour rulers. Bonatti scores the four angles and four vital points, then chases each angle's triplicity lords and each vital point's domicile lord to their own chart position for a second scoring pass — no accidental house, temporal, or synodic points. `Options` exposes the spec's variant toggles (`DefaultOptions()` for the recommended defaults). `LastLongitude` generalizes `PrenatalSyzygy`'s backward-scan-then-bisect pattern to any of the seven planets and an arbitrary target longitude; per-planet search windows account for retrograde loops and orbital period (Moon: 40 days, Saturn: 11500 days).
+Orchestration. `BuildChart` gathers positions, lunar node, houses, and sect once into a `Chart`. `LordOfGeniture`, `AlmutenFiguris`, and `AlmutenBonatti` each return a `Scorecard` (`map[int]int`) plus the tied winners. Part of Fortune and prenatal syzygy are shared via `Chart.computeVitalPoints()`; Figuris additionally derives weekday/planetary-hour rulers. Bonatti scores the four angles and four vital points, then chases each angle's triplicity lords and each vital point's domicile lord to their own chart position for a second scoring pass — no accidental house, temporal, or synodic points. `Options` exposes the spec's variant toggles (`DefaultOptions()` for the recommended defaults). `FindLongitude` generalizes `PrenatalSyzygy`'s scan-then-bisect pattern to any of the seven planets, an arbitrary target longitude, and either scan direction (`Backward`/`Forward`); per-planet search windows account for retrograde loops and orbital period (Moon: 40 days, Saturn: 11500 days).
 
 ### `swisseph`
 
@@ -119,7 +119,7 @@ Low-level cgo bindings. All C calls are mutex-protected for thread safety. Calle
 |---|---|
 | `Build(jd, planets, lat, lon, hsys, hsysName)` | Compute full chart; returns `Result` or error |
 | `BuildAlmuten(jd, lat, lon, hsys, mode)` | Compute `[]AlmutenEntry` for `mode` in `geniture`/`figuris`/`bonatti`/`both`/`all` |
-| `BuildSearch(jd, planet, targetLon, lat, lon, hsys)` | Backward longitude search; returns `*SearchResult` |
+| `BuildSearch(jd, planet, targetLon, lat, lon, hsys, direction)` | Longitude search ("forward" or "backward"); returns `*SearchResult` |
 | `PrintText(r Result, verbose bool) error` | Render human-readable output to stdout |
 | `PrintJSON(r Result, verbose bool) error` | Render JSON output to stdout |
 
@@ -132,7 +132,7 @@ Low-level cgo bindings. All C calls are mutex-protected for thread safety. Calle
 | `AlmutenFiguris(c) (Scorecard, []int, error)` | Ibn Ezra's scorecard + tied winners |
 | `AlmutenBonatti(c) (Scorecard, []int, error)` | Bonatti's Almudebit scorecard + tied winners |
 | `PrenatalSyzygy(jd, lat, lon) (lon, kind, error)` | Most recent new/full moon before `jd` |
-| `LastLongitudeDefault(jd, planet, targetLon)` | Most recent time `planet` was at `targetLon`, using recommended window/step |
+| `FindLongitudeDefault(jd, planet, targetLon, dir)` | Nearest time (per `Direction`) `planet` was/will be at `targetLon`, using recommended window/step |
 | `HouseOf(lon, cusps)` | Quadrant house (1-12) containing a longitude |
 | `DefaultOptions()` | Recommended variant defaults |
 
@@ -150,7 +150,7 @@ Low-level cgo bindings. All C calls are mutex-protected for thread safety. Calle
 - `AngleEntry` — Longitude, Sign, SignDegree
 - `CuspEntry` — House, Longitude, Sign, SignDegree
 - `AlmutenEntry` — Method, Winners, Scoreboard (`[]AlmutenScore{Planet, Score}`, descending)
-- `SearchResult` — Planet, TargetLon, TargetSign, TargetSignDeg, JulianDay, Year/Month/Day/Hour, SpeedLon, Retrograde, House
+- `SearchResult` — Planet, TargetLon, TargetSign, TargetSignDeg, Direction, JulianDay, Year/Month/Day/Hour, SpeedLon, Retrograde, House
 
 ### `almuten` package
 
@@ -175,7 +175,7 @@ Low-level cgo bindings. All C calls are mutex-protected for thread safety. Calle
       "scoreboard": [{ "planet": "Mars", "score": 18 }] }
   ],
   "search": {
-    "planet": "Mars", "target_longitude": 15.0, "target_sign": "Aries", "target_sign_degree": 15.0,
+    "planet": "Mars", "target_longitude": 15.0, "target_sign": "Aries", "target_sign_degree": 15.0, "direction": "backward",
     "timestamp": "2021-09-14T03:22:00Z", "julian_day": 2459471.6, "speed": 0.45, "retrograde": false, "house": 4
   },
   "ephemeris_warning": "SwissEph file '...' not found; using Moshier eph."

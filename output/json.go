@@ -12,6 +12,7 @@ type searchJSON struct {
 	TargetLon  float64  `json:"target_longitude"`
 	TargetSign string   `json:"target_sign"`
 	TargetDeg  float64  `json:"target_sign_degree"`
+	Direction  string   `json:"direction"`
 	Timestamp  string   `json:"timestamp"`
 	JulianDay  float64  `json:"julian_day"`
 	SpeedLon   *float64 `json:"speed,omitempty"`
@@ -112,6 +113,7 @@ func PrintJSON(r Result, verbose bool) error {
 			TargetLon:  s.TargetLon,
 			TargetSign: s.TargetSign,
 			TargetDeg:  s.TargetSignDeg,
+			Direction:  s.Direction,
 			Timestamp:  ts.Format(time.RFC3339),
 			JulianDay:  s.JulianDay,
 		}
