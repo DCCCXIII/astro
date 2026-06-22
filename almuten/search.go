@@ -49,7 +49,7 @@ const (
 
 // String returns "before" for Backward and "after" for Forward, for use in
 // the not-found error message's prose. This is not the CLI's "forward"/
-// "backward" vocabulary — see SearchResult.Direction for that.
+// "backward" vocabulary — see cmd.parseSearchDirection for that.
 func (d Direction) String() string {
 	if d == Forward {
 		return "after"

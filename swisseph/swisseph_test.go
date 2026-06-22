@@ -56,6 +56,13 @@ func TestZodiacSign(t *testing.T) {
 		{-1.0, "Pisces", 29.0},
 		{-30.0, "Pisces", 0.0},
 		{-180.0, "Libra", 0.0},
+		// Float residue from a bisection search converging just under a
+		// boundary (e.g. FindLongitude landing on 179.999999...° instead of
+		// exactly 180°) must still round up into the next sign.
+		{179.999999, "Libra", 0.0},
+		// Just outside the 1e-4° rounding tolerance: must NOT round up, to
+		// confirm the rounding is bounded rather than an unconditional snap.
+		{179.99994, "Virgo", 29.9999},
 	}
 
 	for _, tc := range cases {

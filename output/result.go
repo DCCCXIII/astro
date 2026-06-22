@@ -131,7 +131,8 @@ func almutenEntry(method string, score almuten.Scorecard, winners []int) Almuten
 // FindSearchJD resolves the Julian Day of the nearest moment, in the given
 // direction ("forward" or "backward") relative to jd, at which planet sits
 // at targetLon. Callers pass the result into Build() to render the chart for
-// that moment instead of jd.
+// that moment instead of jd; the rebuilt chart's planet entries already
+// carry speed, so the search's own speed/retrograde outputs are discarded.
 func FindSearchJD(jd float64, planet int, targetLon float64, direction string) (float64, error) {
 	dir, err := searchDirectionFromString(direction)
 	if err != nil {
