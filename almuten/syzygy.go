@@ -70,8 +70,7 @@ func PrenatalSyzygy(jd, lat, lon float64) (syzygyLon float64, kind string, err e
 // is true the target is a full moon (elongation crossing ±180); otherwise a new
 // moon (elongation crossing 0). It returns the crossing instant.
 func refineCrossing(lo, hi float64, full bool) (float64, error) {
-	// f is continuous and changes sign across the crossing within the bracket.
-	f := func(jd float64) (float64, error) {
+	return bisectZeroCrossing(lo, hi, func(jd float64) (float64, error) {
 		e, err := lunarElongation(jd)
 		if err != nil {
 			return 0, err
@@ -80,27 +79,7 @@ func refineCrossing(lo, hi float64, full bool) (float64, error) {
 			return normalize180(e - 180), nil
 		}
 		return e, nil
-	}
-
-	flo, err := f(lo)
-	if err != nil {
-		return 0, err
-	}
-
-	const tol = 1.0 / 86400.0 // one second in days
-	for hi-lo > tol {
-		mid := (lo + hi) / 2
-		fmid, err := f(mid)
-		if err != nil {
-			return 0, err
-		}
-		if (flo <= 0) == (fmid <= 0) {
-			lo, flo = mid, fmid
-		} else {
-			hi = mid
-		}
-	}
-	return (lo + hi) / 2, nil
+	})
 }
 
 // fullMoonLongitude returns the longitude of the luminary above the horizon at a
@@ -119,7 +98,7 @@ func fullMoonLongitude(jd, lat, lon float64) (float64, string, error) {
 		return 0, "", err
 	}
 	// The luminary in houses 7–12 is above the horizon.
-	if houseOf(sun.Longitude, houses.Cusps) >= 7 {
+	if HouseOf(sun.Longitude, houses.Cusps) >= 7 {
 		return norm360(sun.Longitude), "full", nil
 	}
 	return norm360(moon.Longitude), "full", nil

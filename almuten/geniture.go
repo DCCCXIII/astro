@@ -152,7 +152,7 @@ func (c Chart) scoreGeniturePlanet(p int, sunLon float64, opts Options) int {
 	}
 
 	// --- accidental house placement ---
-	s += lillyHousePoints[houseOf(lon, c.Houses.Cusps)]
+	s += lillyHousePoints[HouseOf(lon, c.Houses.Cusps)]
 
 	// --- partile aspects (orb < 1°) ---
 	for _, ben := range []int{swisseph.Jupiter, swisseph.Venus} {

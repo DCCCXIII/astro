@@ -2,7 +2,9 @@ package output
 
 import (
 	"fmt"
+	"math"
 	"sort"
+	"time"
 
 	"github.com/dcccxiii/astro/almuten"
 	"github.com/dcccxiii/astro/swisseph"
@@ -44,6 +46,7 @@ type CuspEntry struct {
 // Build(). Renderers decide which fields to surface based on the verbose flag.
 type Result struct {
 	JulianDay        float64
+	Timestamp        string // RFC3339 calendar date/time corresponding to JulianDay
 	HouseName        string
 	Lat              float64
 	Lon              float64
@@ -125,10 +128,51 @@ func almutenEntry(method string, score almuten.Scorecard, winners []int) Almuten
 	return AlmutenEntry{Method: method, Winners: names, Scoreboard: board}
 }
 
+// FindSearchJD resolves the Julian Day of the nearest moment, in the given
+// direction ("forward" or "backward") relative to jd, at which planet sits
+// at targetLon. Callers pass the result into Build() to render the chart for
+// that moment instead of jd; the rebuilt chart's planet entries already
+// carry speed, so the search's own speed/retrograde outputs are discarded.
+func FindSearchJD(jd float64, planet int, targetLon float64, direction string) (float64, error) {
+	dir, err := searchDirectionFromString(direction)
+	if err != nil {
+		return 0, err
+	}
+
+	crossingJD, _, _, err := almuten.FindLongitudeDefault(jd, planet, targetLon, dir)
+	if err != nil {
+		return 0, fmt.Errorf("searching for %s at %.4f°: %w", swisseph.PlanetName(planet), targetLon, err)
+	}
+	return crossingJD, nil
+}
+
+// searchDirectionFromString validates and converts the --search direction
+// token into an almuten.Direction.
+func searchDirectionFromString(direction string) (almuten.Direction, error) {
+	switch direction {
+	case "backward":
+		return almuten.Backward, nil
+	case "forward":
+		return almuten.Forward, nil
+	default:
+		return 0, fmt.Errorf("unknown search direction %q: valid values are forward, backward", direction)
+	}
+}
+
+// julianDayTimestamp converts a Julian Day to an RFC3339 calendar
+// date/time, rounding the decimal hour to the nearest second.
+func julianDayTimestamp(jd float64) string {
+	year, month, day, hour := swisseph.RevJul(jd)
+	hh := int(hour)
+	mm := int((hour - float64(hh)) * 60)
+	ss := int(math.Round((hour - float64(hh) - float64(mm)/60) * 3600))
+	return time.Date(year, time.Month(month), day, hh, mm, ss, 0, time.UTC).Format(time.RFC3339)
+}
+
 // Build computes a full chart result for the given Julian Day, planets, and
 // geographic location. All swisseph calls are concentrated here.
 func Build(jd float64, planets []int, lat, lon float64, hsys byte, hsysName string) (Result, error) {
-	r := Result{JulianDay: jd, HouseName: hsysName, Lat: lat, Lon: lon}
+	r := Result{JulianDay: jd, Timestamp: julianDayTimestamp(jd), HouseName: hsysName, Lat: lat, Lon: lon}
 
 	for _, p := range planets {
 		name := swisseph.PlanetName(p)

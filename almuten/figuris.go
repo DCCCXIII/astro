@@ -101,7 +101,7 @@ func adjustedHouse(lon float64, cusps [13]float64) int {
 			return next
 		}
 	}
-	return houseOf(lon, cusps)
+	return HouseOf(lon, cusps)
 }
 
 // prepareFiguris fills the Figuris-specific chart inputs (weekday and

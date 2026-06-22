@@ -63,7 +63,7 @@ Bonatti's algorithm computes them this way explicitly
 
 Both Lilly's Lord of the Geniture and Ibn Ezra's Almuten Figuris assign
 points based on which house a planet occupies — Lilly via the plain
-containing house (`houseOf`, `almuten/chart.go:161-176`), Figuris via a
+containing house (`HouseOf`, `almuten/chart.go:161-176`), Figuris via a
 5°-pre-cusp-adjusted house (`adjustedHouse`, `almuten/figuris.go:97-104`).
 Changing `--house-system` changes the cusp positions, which can shift a
 planet from one house to an adjacent one — and therefore change its

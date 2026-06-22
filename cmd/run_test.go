@@ -89,3 +89,92 @@ func TestParseAlmutenMode(t *testing.T) {
 		})
 	}
 }
+
+func TestParseSearchTarget(t *testing.T) {
+	cases := []struct {
+		input      string
+		wantPlanet int
+		wantLon    float64
+		wantDir    string
+		wantErr    bool
+	}{
+		{"", noSearch, 0, "", false},
+		{"mars:195", swisseph.Mars, 195, "backward", false},
+		{"mars:15aries", swisseph.Mars, 15, "backward", false},
+		{"Venus:0cancer", swisseph.Venus, 90, "backward", false},
+		{"MARS:195", swisseph.Mars, 195, "backward", false}, // case-insensitive planet
+		{"saturn:29.5pisces", swisseph.Saturn, 359.5, "backward", false},
+		{"mars:15aries:forward", swisseph.Mars, 15, "forward", false},
+		{"mars:15aries:backward", swisseph.Mars, 15, "backward", false},
+		{"mars:15aries:FORWARD", swisseph.Mars, 15, "forward", false}, // case-insensitive direction
+		{"mars:15aries:", swisseph.Mars, 15, "backward", false},       // trailing empty segment defaults
+		{"pluto:10leo", noSearch, 0, "", true},                        // unsupported planet
+		{"meannode:10leo", noSearch, 0, "", true},                     // explicitly out of scope
+		{"mars", noSearch, 0, "", true},                               // missing colon
+		{"mars:", noSearch, 0, "", true},                              // empty longitude
+		{":195", noSearch, 0, "", true},                               // empty planet
+		{"mars:400", noSearch, 0, "", true},                           // raw degrees out of [0,360)
+		{"mars:-10", noSearch, 0, "", true},                           // negative raw degrees
+		{"mars:15notasign", noSearch, 0, "", true},                    // unparseable longitude
+		{"mars:30aries", noSearch, 0, "", true},                       // sign degree out of [0,30)
+		{"mars:15aries:sideways", noSearch, 0, "", true},              // invalid direction
+		{"mars:15aries:forward:extra", noSearch, 0, "", true},         // extra trailing segment rejected
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.input, func(t *testing.T) {
+			gotPlanet, gotLon, gotDir, err := parseSearchTarget(tc.input)
+			if tc.wantErr {
+				if err == nil {
+					t.Errorf("expected error, got nil")
+				}
+				return
+			}
+			if err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+			if gotPlanet != tc.wantPlanet {
+				t.Errorf("planet = %v, want %v", gotPlanet, tc.wantPlanet)
+			}
+			if gotLon != tc.wantLon {
+				t.Errorf("longitude = %v, want %v", gotLon, tc.wantLon)
+			}
+			if gotDir != tc.wantDir {
+				t.Errorf("direction = %q, want %q", gotDir, tc.wantDir)
+			}
+		})
+	}
+}
+
+func TestParseSearchDirection(t *testing.T) {
+	cases := []struct {
+		input   string
+		want    string
+		wantErr bool
+	}{
+		{"", "backward", false},
+		{"backward", "backward", false},
+		{"forward", "forward", false},
+		{"Forward", "forward", false},
+		{"BACKWARD", "backward", false},
+		{"sideways", "", true},
+		{"forwards", "", true}, // close-but-wrong is still an error, no fuzzy match
+	}
+	for _, tc := range cases {
+		t.Run(tc.input, func(t *testing.T) {
+			got, err := parseSearchDirection(tc.input)
+			if tc.wantErr {
+				if err == nil {
+					t.Errorf("expected error, got nil")
+				}
+				return
+			}
+			if err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+			if got != tc.want {
+				t.Errorf("direction = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}

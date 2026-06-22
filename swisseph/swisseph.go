@@ -84,6 +84,18 @@ func JulDay(year, month, day int, hour float64) float64 {
 	))
 }
 
+// RevJul converts a Julian Day (UT) back to a Gregorian calendar date and
+// time. hour is in decimal form (e.g. 14.5 means 2:30 PM). It is the exact
+// inverse of JulDay.
+func RevJul(jd float64) (year, month, day int, hour float64) {
+	var y, m, d C.int
+	var h C.double
+	mu.Lock()
+	C.swe_revjul(C.double(jd), C.SE_GREG_CAL, &y, &m, &d, &h)
+	mu.Unlock()
+	return int(y), int(m), int(d), float64(h)
+}
+
 // PlanetPos holds the result of a planetary position calculation.
 type PlanetPos struct {
 	Longitude     float64 // ecliptic longitude in degrees (0-360)
@@ -271,6 +283,14 @@ func ZodiacSign(longitude float64) (sign string, degrees float64) {
 	longitude = math.Mod(longitude, 360.0)
 	if longitude < 0 {
 		longitude += 360.0
+	}
+	// Round to 1e-4°, matching the precision callers display, before
+	// computing the sign index. Without this, float residue from upstream
+	// calculations (e.g. a bisection search converging to 179.999999...°)
+	// truncates into the wrong sign despite displaying as the boundary value.
+	longitude = math.Round(longitude*1e4) / 1e4
+	if longitude >= 360.0 {
+		longitude -= 360.0
 	}
 	idx := int(longitude / 30.0)
 	if idx >= 12 {

@@ -34,6 +34,7 @@ type almutenJSON struct {
 
 type resultJSON struct {
 	JulianDay        float64       `json:"julian_day"`
+	Timestamp        string        `json:"timestamp"`
 	Planets          []planetJSON  `json:"planets"`
 	Houses           housesJSON    `json:"houses"`
 	Almuten          []almutenJSON `json:"almuten,omitempty"`
@@ -76,6 +77,7 @@ func PrintJSON(r Result, verbose bool) error {
 
 	out := resultJSON{
 		JulianDay: r.JulianDay,
+		Timestamp: r.Timestamp,
 		Planets:   planets,
 		Houses:    houses,
 	}
@@ -86,6 +88,7 @@ func PrintJSON(r Result, verbose bool) error {
 		}
 		out.Almuten = append(out.Almuten, entry)
 	}
+
 	if verbose && r.EphemerisWarning != "" {
 		out.EphemerisWarning = &r.EphemerisWarning
 	}

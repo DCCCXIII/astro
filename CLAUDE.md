@@ -24,7 +24,8 @@ astro/
 │   ├── geniture.go      # LordOfGeniture — Lilly's Christian Astrology p.115 scorecard
 │   ├── figuris.go       # AlmutenFiguris — Ibn Ezra's five-place scorecard
 │   ├── bonatti.go       # AlmutenBonatti — Bonatti's Almudebit (angles + vital points + dispositors)
-│   └── syzygy.go        # Prenatal new/full-moon finder (pure Go on CalcPlanet)
+│   ├── syzygy.go        # Prenatal new/full-moon finder (pure Go on CalcPlanet)
+│   └── search.go        # FindLongitude — bidirectional search for a planet's next/last occurrence at a longitude
 ├── swisseph/
 │   ├── swisseph.go      # Go cgo bindings to Swiss Ephemeris
 │   ├── swisseph_test.go # Tests for the swisseph package
@@ -49,18 +50,12 @@ ALWAYS use these make targets instead of raw Go commands:
 
 Never run `go build`, `go test`, `go fmt`, or `go vet` directly.
 
-## Build
-
-```bash
-make
-```
-
 Requires Go 1.25+ and a C compiler (GCC or Clang). No external C library installation needed — Swiss Ephemeris C sources are bundled. cgo compiles them automatically via directives in `swisseph/swisseph.go`.
 
 ## CLI Usage
 
 ```bash
-astro [--house-system <system>] [--almuten <mode>] [--json] [--verbose] <datetime> <lat> <lon>
+astro [--house-system <system>] [--almuten <mode>] [--search <planet>:<longitude>[:<direction>]] [--json] [--verbose] <datetime> <lat> <lon>
 ```
 
 - `<datetime>`: UTC time in ISO 8601 (e.g. `2024-03-20T12:00:00Z`)
@@ -68,6 +63,7 @@ astro [--house-system <system>] [--almuten <mode>] [--json] [--verbose] <datetim
 - `<lon>`: Decimal degrees, east positive
 - `--house-system`: `placidus` (default), `koch`, `whole-sign`, `regiomontanus`, `equal`, `campanus`
 - `--almuten`: `geniture` (Lilly's Lord of the Geniture), `figuris` (Ibn Ezra's Almuten Figuris), `bonatti` (Bonatti's Almudebit), `both` (geniture+figuris), or `all`. Omitted = no almuten section.
+- `--search`: `<planet>:<longitude>[:<direction>]` (e.g. `mars:15aries`, `mars:195`, or `mars:15aries:forward`) — finds the nearest time `<planet>` was/will be at that ecliptic longitude relative to `<datetime>`, then renders the **entire** report (planets, houses, almuten) for that found moment instead of `<datetime>`. `<direction>` is `backward` (default, most recent occurrence before `<datetime>`) or `forward` (next occurrence after `<datetime>`). Longitude accepts raw degrees `[0,360)` or sign+degree `[0,30)`. The `Date:` line under `Julian Day:` always shows which moment is being reported.
 - `--json`: Output JSON instead of human-readable text
 - `--verbose`: Include ecliptic latitude, distance, speed components, ARMC, Vertex, the almuten scoreboard table, and ephemeris source warning (if Moshier fallback is active). Without `--verbose`, almuten output shows only the victor(s).
 
@@ -91,7 +87,7 @@ Pure-Go static tables (domicile/detriment, exaltation/fall, Dorothean triplicity
 
 ### `almuten`
 
-Orchestration. `BuildChart` gathers positions, lunar node, houses, and sect once into a `Chart`. `LordOfGeniture`, `AlmutenFiguris`, and `AlmutenBonatti` each return a `Scorecard` (`map[int]int`) plus the tied winners. Part of Fortune and prenatal syzygy are shared via `Chart.computeVitalPoints()`; Figuris additionally derives weekday/planetary-hour rulers. Bonatti scores the four angles and four vital points, then chases each angle's triplicity lords and each vital point's domicile lord to their own chart position for a second scoring pass — no accidental house, temporal, or synodic points. `Options` exposes the spec's variant toggles (`DefaultOptions()` for the recommended defaults).
+Orchestration. `BuildChart` gathers positions, lunar node, houses, and sect once into a `Chart`. `LordOfGeniture`, `AlmutenFiguris`, and `AlmutenBonatti` each return a `Scorecard` (`map[int]int`) plus the tied winners. Part of Fortune and prenatal syzygy are shared via `Chart.computeVitalPoints()`; Figuris additionally derives weekday/planetary-hour rulers. Bonatti scores the four angles and four vital points, then chases each angle's triplicity lords and each vital point's domicile lord to their own chart position for a second scoring pass — no accidental house, temporal, or synodic points. `Options` exposes the spec's variant toggles (`DefaultOptions()` for the recommended defaults). `FindLongitude` generalizes `PrenatalSyzygy`'s scan-then-bisect pattern to any of the seven planets, an arbitrary target longitude, and either scan direction (`Backward`/`Forward`); per-planet search windows account for retrograde loops and orbital period (Moon: 40 days, Saturn: 11500 days).
 
 ### `swisseph`
 
@@ -106,6 +102,7 @@ Low-level cgo bindings. All C calls are mutex-protected for thread safety. Calle
 | `SetEphePath(path)` | Set path to `ephe/` directory |
 | `Close()` | Free C library resources |
 | `JulDay(year, month, day, hour)` | Calendar date → Julian Day |
+| `RevJul(jd)` | Julian Day → calendar date (exact inverse of `JulDay`) |
 | `CalcPlanet(tjdUT, planet)` | Planet position at Julian Day; second return value is a warning string (non-empty when Moshier fallback is active) |
 | `CalcHouses(tjdUT, lat, lon, hsys)` | House cusps for location/time |
 | `FixStar(name, tjdUT)` | Fixed-star position by catalogue name (e.g. `"Regulus"`); resolves via `ephe/sefstars.txt` |
@@ -122,6 +119,7 @@ Low-level cgo bindings. All C calls are mutex-protected for thread safety. Calle
 |---|---|
 | `Build(jd, planets, lat, lon, hsys, hsysName)` | Compute full chart; returns `Result` or error |
 | `BuildAlmuten(jd, lat, lon, hsys, mode)` | Compute `[]AlmutenEntry` for `mode` in `geniture`/`figuris`/`bonatti`/`both`/`all` |
+| `FindSearchJD(jd, planet, targetLon, direction)` | Resolves the Julian Day for `--search` ("forward" or "backward"); feed the result back into `Build()` |
 | `PrintText(r Result, verbose bool) error` | Render human-readable output to stdout |
 | `PrintJSON(r Result, verbose bool) error` | Render JSON output to stdout |
 
@@ -134,6 +132,8 @@ Low-level cgo bindings. All C calls are mutex-protected for thread safety. Calle
 | `AlmutenFiguris(c) (Scorecard, []int, error)` | Ibn Ezra's scorecard + tied winners |
 | `AlmutenBonatti(c) (Scorecard, []int, error)` | Bonatti's Almudebit scorecard + tied winners |
 | `PrenatalSyzygy(jd, lat, lon) (lon, kind, error)` | Most recent new/full moon before `jd` |
+| `FindLongitudeDefault(jd, planet, targetLon, dir)` | Nearest time (per `Direction`) `planet` was/will be at `targetLon`, using recommended window/step |
+| `HouseOf(lon, cusps)` | Quadrant house (1-12) containing a longitude |
 | `DefaultOptions()` | Recommended variant defaults |
 
 ## Key Data Structures
@@ -145,7 +145,7 @@ Low-level cgo bindings. All C calls are mutex-protected for thread safety. Calle
 
 ### `output` package
 
-- `Result` — JulianDay, HouseName, Lat, Lon, Planets, Ascendant, MC, ARMC, Vertex, Cusps, EphemerisWarning, Almuten
+- `Result` — JulianDay, Timestamp, HouseName, Lat, Lon, Planets, Ascendant, MC, ARMC, Vertex, Cusps, EphemerisWarning, Almuten
 - `PlanetEntry` — Name, Longitude, Sign, SignDegree, Speed, Latitude, Distance, SpeedLat, SpeedDistance
 - `AngleEntry` — Longitude, Sign, SignDegree
 - `CuspEntry` — House, Longitude, Sign, SignDegree
@@ -162,6 +162,7 @@ Low-level cgo bindings. All C calls are mutex-protected for thread safety. Calle
 ```json
 {
   "julian_day": 2460389.0,
+  "timestamp": "2024-03-20T12:00:00Z",
   "planets": [{ "name": "Sun", "longitude": 0.0, "sign": "Aries", "sign_degree": 0.0, "speed": 1.0 }],
   "houses": {
     "system": "Placidus",
@@ -177,7 +178,7 @@ Low-level cgo bindings. All C calls are mutex-protected for thread safety. Calle
 }
 ```
 
-`almuten` is present only when `--almuten` is passed (one entry per algorithm). Its `scoreboard` is included only under `--verbose`. `ephemeris_warning` is only present under `--verbose` and only when the Swiss Ephemeris `.se1` files were not found (Moshier fallback is active). Both are omitted entirely from normal output.
+`julian_day`/`timestamp` reflect `<datetime>` normally, or the found moment when `--search` is passed (see above). `almuten` is present only when `--almuten` is passed (one entry per algorithm); its `scoreboard` is included only under `--verbose`. `ephemeris_warning` is only present under `--verbose` and only when the Swiss Ephemeris `.se1` files were not found (Moshier fallback is active). Both are omitted entirely otherwise.
 
 ## Ephemeris Data
 

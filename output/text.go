@@ -15,6 +15,7 @@ const planetNameWidth = 10
 // (ecliptic latitude, distance, latitude/distance speeds, ARMC, Vertex).
 func PrintText(r Result, verbose bool) error {
 	fmt.Printf("Julian Day: %.6f\n", r.JulianDay)
+	fmt.Printf("Date:       %s\n", r.Timestamp)
 	if verbose && r.EphemerisWarning != "" {
 		fmt.Printf("Ephemeris:  %s\n", r.EphemerisWarning)
 	}
@@ -59,5 +60,6 @@ func PrintText(r Result, verbose bool) error {
 			}
 		}
 	}
+
 	return nil
 }
